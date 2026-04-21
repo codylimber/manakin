@@ -3,7 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#CC1A1A1A"
+    android:background="@android:color/transparent"
+    android:gravity="center"
     android:padding="12dp">
 
     <TextView
@@ -12,16 +13,16 @@
         android:layout_height="wrap_content"
         android:text="Manakin"
         android:textColor="#FF4CAF50"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp" />
+        android:textSize="14sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_content"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="#FFCCCCCC"
-        android:textSize="13sp"
-        android:lineSpacingMultiplier="1.3" />
+        android:text="Loading…"
+        android:textColor="#FFAAAAAA"
+        android:textSize="12sp"
+        android:layout_marginTop="4dp" />
 
 </LinearLayout>

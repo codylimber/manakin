@@ -62,8 +62,18 @@ fun MainScreen(
     repository: PhenologyRepository,
     apiClient: INatApiClient,
     generator: DatasetGenerator,
-    lifeListService: LifeListService
+    lifeListService: LifeListService,
+    initialRoute: String? = null
 ) {
+    // Handle deep-link from widget on first composition
+    LaunchedEffect(initialRoute) {
+        if (initialRoute != null && initialRoute != Routes.SPECIES_LIST) {
+            navController.navigate(initialRoute) {
+                launchSingleTop = true
+            }
+        }
+    }
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 

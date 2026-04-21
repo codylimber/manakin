@@ -24,6 +24,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        val widgetDeepLink = intent?.getStringExtra("deeplink_route")
+
         val repository = PhenologyRepository(applicationContext)
         repository.loadDatasets()
 
@@ -64,11 +66,11 @@ class MainActivity : ComponentActivity() {
                         })
                     } else {
                         val navController = rememberNavController()
-                        MainScreen(navController, repository, apiClient, generator, lifeListService)
+                        MainScreen(navController, repository, apiClient, generator, lifeListService, initialRoute = widgetDeepLink)
                     }
                 } else {
                     val navController = rememberNavController()
-                    MainScreen(navController, repository, apiClient, generator, lifeListService)
+                    MainScreen(navController, repository, apiClient, generator, lifeListService, initialRoute = widgetDeepLink)
                 }
             }
         }

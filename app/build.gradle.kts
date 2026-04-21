@@ -66,6 +66,10 @@ dependencies {
     // Background work (notifications)
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
+    // Glance (home screen widgets)
+    implementation("androidx.glance:glance-appwidget:1.1.1")
+    implementation("androidx.glance:glance-material3:1.1.1")
+
     // Image loading
     implementation("io.coil-kt.coil3:coil-compose:3.0.4")
 

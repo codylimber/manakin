@@ -18,7 +18,7 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
         <receiver
-            android:name=".widget.ManakinWidget"
+            android:name=".widget.ManakinWidgetReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
