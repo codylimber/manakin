@@ -391,6 +391,9 @@ fun SettingsScreen(
                         onClick = {
                             widgetMode = value
                             lifeListService.prefs.edit().putString("widget_mode", value).apply()
+                            coroutineScope.launch {
+                                androidx.glance.appwidget.updateAll<com.codylimber.fieldphenology.widget.ManakinGlanceWidget>(context)
+                            }
                         },
                         label = { Text(label, fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Primary.copy(alpha = 0.2f), selectedLabelColor = Primary))
