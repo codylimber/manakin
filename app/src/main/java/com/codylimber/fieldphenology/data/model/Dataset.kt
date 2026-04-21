@@ -19,7 +19,7 @@ data class DatasetMetadata(
     val totalObs: Int,
     val speciesCount: Int,
     val generatedAt: String,
-    val minObs: Int = 1,
+    val minObs: Int = 10,
     val qualityGrade: String = "research",
     val maxPhotos: Int = 3
 )

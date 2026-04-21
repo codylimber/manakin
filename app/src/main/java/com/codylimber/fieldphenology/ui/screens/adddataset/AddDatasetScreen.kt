@@ -215,7 +215,7 @@ fun AddDatasetScreen(
                     OutlinedTextField(
                         value = state.minObs,
                         onValueChange = { viewModel.onMinObsChanged(it) },
-                        placeholder = { Text("1") },
+                        placeholder = { Text("10") },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),

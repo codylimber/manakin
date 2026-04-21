@@ -29,7 +29,7 @@ data class AddDatasetState(
 
     // Advanced options
     val showAdvanced: Boolean = false,
-    val minObs: String = "1",
+    val minObs: String = "10",
     val qualityGrade: String = "research",
     val maxPhotos: String = "3",
 
