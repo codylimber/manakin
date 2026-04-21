@@ -23,10 +23,15 @@ data class AddDatasetState(
     val selectedTaxons: List<TaxonResult> = emptyList(),
     val showTaxonDropdown: Boolean = false,
 
+    val showAllPlaces: Boolean = false,
     val groupLabel: String = "",
     val minObs: String = "1",
     val isSearching: Boolean = false
 ) {
+    val filteredPlaceResults: List<PlaceResult>
+        get() = if (showAllPlaces) placeResults
+                else placeResults.filter { it.adminLevel != null }
+
     val canGenerate: Boolean
         get() = selectedPlaces.isNotEmpty() && groupLabel.isNotBlank()
 }
@@ -47,7 +52,7 @@ class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
             return
         }
         placeSearchJob = viewModelScope.launch {
-            delay(300)
+            delay(150)
             _state.value = _state.value.copy(isSearching = true)
             try {
                 val results = apiClient.searchPlaces(query)
@@ -86,7 +91,7 @@ class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
             return
         }
         taxonSearchJob = viewModelScope.launch {
-            delay(300)
+            delay(150)
             _state.value = _state.value.copy(isSearching = true)
             try {
                 val results = apiClient.searchTaxa(query)
@@ -123,6 +128,10 @@ class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
 
     fun onMinObsChanged(value: String) {
         _state.value = _state.value.copy(minObs = value.filter { it.isDigit() })
+    }
+
+    fun toggleShowAllPlaces() {
+        _state.value = _state.value.copy(showAllPlaces = !_state.value.showAllPlaces)
     }
 
     fun dismissDropdowns() {

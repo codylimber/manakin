@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.codylimber.fieldphenology.data.api.INatApiClient
@@ -52,9 +53,24 @@ fun AddDatasetScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Place search
-            Text("Locations", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Locations", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                FilterChip(
+                    selected = state.showAllPlaces,
+                    onClick = { viewModel.toggleShowAllPlaces() },
+                    label = { Text(if (state.showAllPlaces) "All Places" else "Regions Only", fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Primary.copy(alpha = 0.15f),
+                        selectedLabelColor = Primary
+                    )
+                )
+            }
             ExposedDropdownMenuBox(
-                expanded = state.showPlaceDropdown && state.placeResults.isNotEmpty(),
+                expanded = state.showPlaceDropdown && state.filteredPlaceResults.isNotEmpty(),
                 onExpandedChange = { }
             ) {
                 OutlinedTextField(
@@ -67,11 +83,11 @@ fun AddDatasetScreen(
                     modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryEditable)
                 )
                 ExposedDropdownMenu(
-                    expanded = state.showPlaceDropdown && state.placeResults.isNotEmpty(),
+                    expanded = state.showPlaceDropdown && state.filteredPlaceResults.isNotEmpty(),
                     onDismissRequest = { viewModel.dismissDropdowns() },
                     containerColor = MaterialTheme.colorScheme.surface
                 ) {
-                    state.placeResults.forEach { place ->
+                    state.filteredPlaceResults.forEach { place ->
                         DropdownMenuItem(
                             text = { Text(place.name, fontSize = 14.sp) },
                             onClick = { viewModel.addPlace(place) }

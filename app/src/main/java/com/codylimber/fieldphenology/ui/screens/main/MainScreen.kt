@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Star
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavHostController
@@ -17,9 +18,20 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.data.api.LifeListService
 import com.codylimber.fieldphenology.data.generator.DatasetGenerator
+import com.codylimber.fieldphenology.data.generator.GenerationService
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.navigation.GenerationParams
 import com.codylimber.fieldphenology.ui.navigation.Routes
@@ -59,9 +71,48 @@ fun MainScreen(
     val tabRoutes = Tab.entries.map { it.route }
     val showBottomBar = currentRoute in tabRoutes
 
+    val isGenerating by GenerationService.isRunning.collectAsState()
+    val generationComplete by GenerationService.isComplete.collectAsState()
+
+    // Reload datasets when background generation completes
+    LaunchedEffect(generationComplete) {
+        if (generationComplete) {
+            repository.reloadDatasets()
+        }
+    }
+
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
+                androidx.compose.foundation.layout.Column {
+                    AnimatedVisibility(visible = isGenerating && currentRoute != Routes.GENERATING) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { navController.navigate(Routes.GENERATING) }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp)
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Primary
+                                )
+                                Text(
+                                    "Generating dataset… Tap to view progress",
+                                    color = Primary,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     Tab.entries.forEach { tab ->
                         NavigationBarItem(
@@ -84,6 +135,7 @@ fun MainScreen(
                             )
                         )
                     }
+                }
                 }
             }
         }
@@ -185,6 +237,9 @@ fun MainScreen(
                         },
                         onCancel = {
                             GenerationParams.current = null
+                            navController.popBackStack(Routes.SPECIES_LIST, inclusive = false)
+                        },
+                        onBackground = {
                             navController.popBackStack(Routes.SPECIES_LIST, inclusive = false)
                         }
                     )

@@ -28,10 +28,19 @@ class GeneratingViewModel(
     val state: StateFlow<GeneratingState> = _state
 
     fun startGeneration(params: GenerationParams) {
+        // If already running, just reconnect to the service's state
+        if (GenerationService.isRunning.value) {
+            observeService()
+            return
+        }
+
         // Start the foreground service
         GenerationService.start(context)
 
-        // Observe the service's state
+        observeService()
+    }
+
+    private fun observeService() {
         viewModelScope.launch {
             GenerationService.progress.collect { progress ->
                 if (progress != null) {
