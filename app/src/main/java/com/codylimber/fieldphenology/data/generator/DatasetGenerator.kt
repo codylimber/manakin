@@ -20,6 +20,8 @@ data class GenerationProgress(
     val message: String
 )
 
+private val datasetJson = Json { encodeDefaults = true }
+
 class DatasetGenerator(
     private val apiClient: INatApiClient,
     private val context: Context
@@ -246,7 +248,7 @@ class DatasetGenerator(
             species = speciesEntries
         )
 
-        val jsonStr = Json { encodeDefaults = true }.encodeToString(dataset)
+        val jsonStr = datasetJson.encodeToString(dataset)
         File(outputDir, "dataset.json").writeText(jsonStr)
 
         onProgress(GenerationProgress(GenerationPhase.SAVING, 1, 1,
