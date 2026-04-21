@@ -25,7 +25,8 @@ fun GeneratingScreen(
     generator: DatasetGenerator,
     repository: PhenologyRepository,
     onDone: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onBackground: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val viewModel: GeneratingViewModel = viewModel { GeneratingViewModel(repository, context.applicationContext) }
@@ -128,6 +129,12 @@ fun GeneratingScreen(
                     ) { Text("Retry") }
                 }
             } else {
+                Button(
+                    onClick = onBackground,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) { Text("Continue in Background", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
                 OutlinedButton(
                     onClick = { viewModel.cancel(); onCancel() },
                     shape = RoundedCornerShape(12.dp),

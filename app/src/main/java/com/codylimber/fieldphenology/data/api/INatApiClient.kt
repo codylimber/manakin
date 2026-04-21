@@ -115,7 +115,8 @@ class INatApiClient(private val client: OkHttpClient) {
             val obj = r.jsonObject
             val id = obj["id"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
             val name = obj["display_name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-            PlaceResult(id, name)
+            val adminLevel = obj["admin_level"]?.jsonPrimitive?.intOrNull
+            PlaceResult(id, name, adminLevel)
         } ?: emptyList()
     }
 
