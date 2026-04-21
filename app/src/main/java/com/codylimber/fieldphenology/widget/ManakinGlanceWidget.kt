@@ -272,22 +272,12 @@ data class WidgetSpeciesItem(
 
 @Composable
 private fun WidgetContent(data: WidgetData, mode: String) {
-    val bgColor = ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFFF5F5F5),
-        night = androidx.compose.ui.graphics.Color(0xFF1A1A1A)
-    )
-    val textColor = ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFF1A1A1A),
-        night = androidx.compose.ui.graphics.Color(0xFFEEEEEE)
-    )
-    val subtextColor = ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFF666666),
-        night = androidx.compose.ui.graphics.Color(0xFFAAAAAA)
-    )
-    val accentColor = ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFF4CAF50),
-        night = androidx.compose.ui.graphics.Color(0xFF66BB6A)
-    )
+    val isDark = android.content.res.Configuration.UI_MODE_NIGHT_YES ==
+        (LocalContext.current.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+    val bgColor = ColorProvider(if (isDark) androidx.compose.ui.graphics.Color(0xFF1A1A1A) else androidx.compose.ui.graphics.Color(0xFFF5F5F5))
+    val textColor = ColorProvider(if (isDark) androidx.compose.ui.graphics.Color(0xFFEEEEEE) else androidx.compose.ui.graphics.Color(0xFF1A1A1A))
+    val subtextColor = ColorProvider(if (isDark) androidx.compose.ui.graphics.Color(0xFFAAAAAA) else androidx.compose.ui.graphics.Color(0xFF666666))
+    val accentColor = ColorProvider(if (isDark) androidx.compose.ui.graphics.Color(0xFF66BB6A) else androidx.compose.ui.graphics.Color(0xFF4CAF50))
 
     val deepLinkRoute = when (mode) {
         "organism_of_day" -> "species_detail/${data.heroSpecies?.taxonId ?: 0}"
