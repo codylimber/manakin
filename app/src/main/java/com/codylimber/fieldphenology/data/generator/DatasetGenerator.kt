@@ -31,6 +31,7 @@ class DatasetGenerator(
         taxonName: String,
         groupName: String,
         minObs: Int = 1,
+        qualityGrade: String = "research",
         maxPhotos: Int = 3,
         onProgress: (GenerationProgress) -> Unit
     ): String {
@@ -49,7 +50,7 @@ class DatasetGenerator(
             for (placeId in placeIds) {
                 var page = 1
                 while (true) {
-                    val (total, results) = apiClient.getSpeciesCounts(taxonId, placeId, page = page)
+                    val (total, results) = apiClient.getSpeciesCounts(taxonId, placeId, qualityGrade = qualityGrade, page = page)
                     for (r in results) {
                         val tid = r["taxon"]?.jsonObject?.get("id")?.jsonPrimitive?.intOrNull ?: continue
                         val count = r["count"]?.jsonPrimitive?.intOrNull ?: 0
@@ -95,7 +96,7 @@ class DatasetGenerator(
 
             val combined = mutableMapOf<Int, Int>()
             for (placeId in placeIds) {
-                val h = apiClient.getHistogram(sp.taxonId, placeId)
+                val h = apiClient.getHistogram(sp.taxonId, placeId, qualityGrade = qualityGrade)
                 for ((week, count) in h) {
                     combined[week] = (combined[week] ?: 0) + count
                 }
@@ -149,7 +150,17 @@ class DatasetGenerator(
                 license != null && license.startsWith("cc")
             }
 
-            for ((pi, photo) in ccPhotos.take(maxPhotos).withIndex()) {
+            // Fallback to observation photos if taxon photos are insufficient
+            val allCcPhotos = if (ccPhotos.size < maxPhotos) {
+                val obsPhotos = try {
+                    apiClient.getObservationPhotos(sp.taxonId, placeIds, qualityGrade, maxPhotos - ccPhotos.size)
+                } catch (_: Exception) { emptyList() }
+                ccPhotos + obsPhotos
+            } else {
+                ccPhotos
+            }
+
+            for ((pi, photo) in allCcPhotos.take(maxPhotos).withIndex()) {
                 var url = photo["medium_url"]?.jsonPrimitive?.contentOrNull
                     ?: photo["url"]?.jsonPrimitive?.contentOrNull
                     ?: continue
@@ -221,11 +232,16 @@ class DatasetGenerator(
             metadata = DatasetMetadata(
                 placeName = placeName,
                 placeId = placeIds.first(),
+                placeIds = placeIds,
                 group = groupName,
                 taxonName = taxonName,
+                taxonIds = taxonIds.filterNotNull(),
                 totalObs = speciesList.sumOf { it.totalObs },
                 speciesCount = speciesList.size,
-                generatedAt = Instant.now().toString()
+                generatedAt = Instant.now().toString(),
+                minObs = minObs,
+                qualityGrade = qualityGrade,
+                maxPhotos = maxPhotos
             ),
             species = speciesEntries
         )

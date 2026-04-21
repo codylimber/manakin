@@ -25,7 +25,18 @@ data class AddDatasetState(
 
     val showAllPlaces: Boolean = false,
     val groupLabel: String = "",
+    val groupLabelEdited: Boolean = false,
+
+    // Advanced options
+    val showAdvanced: Boolean = false,
     val minObs: String = "1",
+    val qualityGrade: String = "research",
+    val maxPhotos: String = "3",
+
+    // Estimate
+    val estimatedSpecies: Int? = null,
+    val isEstimating: Boolean = false,
+
     val isSearching: Boolean = false
 ) {
     val filteredPlaceResults: List<PlaceResult>
@@ -34,6 +45,20 @@ data class AddDatasetState(
 
     val canGenerate: Boolean
         get() = selectedPlaces.isNotEmpty() && groupLabel.isNotBlank()
+
+    val estimatedSizeMb: Double?
+        get() {
+            val count = estimatedSpecies ?: return null
+            val photosPerSpecies = maxPhotos.toIntOrNull() ?: 3
+            val bytes = count * (2_000 + photosPerSpecies * 75_000L)
+            return bytes / 1_000_000.0
+        }
+
+    val estimatedMinutes: Double?
+        get() {
+            val count = estimatedSpecies ?: return null
+            return count * 2.0 / 60.0
+        }
 }
 
 class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
@@ -43,6 +68,7 @@ class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
 
     private var placeSearchJob: Job? = null
     private var taxonSearchJob: Job? = null
+    private var estimateJob: Job? = null
 
     fun onPlaceQueryChanged(query: String) {
         _state.value = _state.value.copy(placeQuery = query, showPlaceDropdown = true)
@@ -74,6 +100,8 @@ class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
                 showPlaceDropdown = false,
                 placeResults = emptyList()
             )
+            updateAutoLabel()
+            fetchEstimate()
         }
     }
 
@@ -81,6 +109,8 @@ class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
         _state.value = _state.value.copy(
             selectedPlaces = _state.value.selectedPlaces.filter { it.id != place.id }
         )
+        updateAutoLabel()
+        fetchEstimate()
     }
 
     fun onTaxonQueryChanged(query: String) {
@@ -105,14 +135,14 @@ class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
     fun addTaxon(taxon: TaxonResult) {
         val current = _state.value.selectedTaxons
         if (current.none { it.id == taxon.id }) {
-            val label = taxon.commonName.ifEmpty { taxon.scientificName }
             _state.value = _state.value.copy(
                 selectedTaxons = current + taxon,
                 taxonQuery = "",
                 showTaxonDropdown = false,
-                taxonResults = emptyList(),
-                groupLabel = if (_state.value.groupLabel.isBlank()) label else _state.value.groupLabel
+                taxonResults = emptyList()
             )
+            updateAutoLabel()
+            fetchEstimate()
         }
     }
 
@@ -120,21 +150,78 @@ class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
         _state.value = _state.value.copy(
             selectedTaxons = _state.value.selectedTaxons.filter { it.id != taxon.id }
         )
+        updateAutoLabel()
+        fetchEstimate()
     }
 
     fun onGroupLabelChanged(label: String) {
-        _state.value = _state.value.copy(groupLabel = label)
+        _state.value = _state.value.copy(groupLabel = label, groupLabelEdited = true)
     }
 
     fun onMinObsChanged(value: String) {
         _state.value = _state.value.copy(minObs = value.filter { it.isDigit() })
     }
 
+    fun onQualityGradeChanged(grade: String) {
+        _state.value = _state.value.copy(qualityGrade = grade)
+        fetchEstimate()
+    }
+
+    fun onMaxPhotosChanged(value: String) {
+        _state.value = _state.value.copy(maxPhotos = value.filter { it.isDigit() })
+    }
+
     fun toggleShowAllPlaces() {
         _state.value = _state.value.copy(showAllPlaces = !_state.value.showAllPlaces)
     }
 
+    fun toggleAdvanced() {
+        _state.value = _state.value.copy(showAdvanced = !_state.value.showAdvanced)
+    }
+
     fun dismissDropdowns() {
         _state.value = _state.value.copy(showPlaceDropdown = false, showTaxonDropdown = false)
+    }
+
+    private fun updateAutoLabel() {
+        if (_state.value.groupLabelEdited) return
+        val s = _state.value
+        val taxonPart = if (s.selectedTaxons.isNotEmpty()) {
+            s.selectedTaxons.joinToString(", ") { it.commonName.ifEmpty { it.scientificName } }
+        } else {
+            "All Species"
+        }
+        val placePart = s.selectedPlaces.joinToString(", ") {
+            it.name.substringBefore(",")
+        }
+        val label = if (placePart.isNotEmpty()) "$placePart $taxonPart" else taxonPart
+        _state.value = _state.value.copy(groupLabel = label)
+    }
+
+    private fun fetchEstimate() {
+        estimateJob?.cancel()
+        val s = _state.value
+        if (s.selectedPlaces.isEmpty()) {
+            _state.value = _state.value.copy(estimatedSpecies = null, isEstimating = false)
+            return
+        }
+        estimateJob = viewModelScope.launch {
+            _state.value = _state.value.copy(isEstimating = true)
+            try {
+                val taxonIds = if (s.selectedTaxons.isEmpty()) listOf(null)
+                    else s.selectedTaxons.map { it.id }
+                var total = 0
+                for (taxonId in taxonIds) {
+                    total += apiClient.getSpeciesCountEstimate(
+                        taxonId,
+                        s.selectedPlaces.map { it.id },
+                        s.qualityGrade
+                    )
+                }
+                _state.value = _state.value.copy(estimatedSpecies = total, isEstimating = false)
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(estimatedSpecies = null, isEstimating = false)
+            }
+        }
     }
 }

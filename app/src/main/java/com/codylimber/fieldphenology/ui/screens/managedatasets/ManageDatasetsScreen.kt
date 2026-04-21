@@ -32,7 +32,7 @@ fun ManageDatasetsScreen(
     repository: PhenologyRepository,
     onBack: (() -> Unit)? = null,
     onAddDataset: () -> Unit = {},
-    onUpdateDataset: ((placeId: Int, placeName: String, groupName: String) -> Unit)? = null,
+    onUpdateDataset: ((meta: com.codylimber.fieldphenology.data.model.DatasetMetadata) -> Unit)? = null,
     onTimeline: (() -> Unit)? = null,
     onTripReport: (() -> Unit)? = null,
     onCompare: (() -> Unit)? = null,
@@ -145,7 +145,7 @@ fun ManageDatasetsScreen(
                                 val ds = repository.getDataset(info.key)
                                 IconButton(onClick = {
                                     ds?.metadata?.let { meta ->
-                                        onUpdateDataset(meta.placeId, meta.placeName, meta.group)
+                                        onUpdateDataset(meta)
                                     }
                                 }) {
                                     Icon(Icons.Default.Refresh, "Update", tint = Primary, modifier = Modifier.size(20.dp))

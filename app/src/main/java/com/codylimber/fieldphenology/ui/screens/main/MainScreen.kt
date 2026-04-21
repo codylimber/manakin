@@ -174,15 +174,19 @@ fun MainScreen(
                 ManageDatasetsScreen(
                     repository = repository,
                     onAddDataset = { navController.navigate(Routes.ADD_DATASET) },
-                    onUpdateDataset = { placeId, placeName, groupName ->
+                    onUpdateDataset = { meta ->
+                        val tIds: List<Int?> = if (meta.taxonIds.isEmpty()) listOf(null) else meta.taxonIds.map { it }
+                        val pIds = if (meta.placeIds.isNotEmpty()) meta.placeIds else listOf(meta.placeId)
                         com.codylimber.fieldphenology.ui.navigation.GenerationParams.current =
                             com.codylimber.fieldphenology.ui.navigation.GenerationParams(
-                                placeIds = listOf(placeId),
-                                placeName = placeName,
-                                taxonIds = listOf(null),
-                                taxonName = "All Species",
-                                groupName = groupName,
-                                minObs = 1
+                                placeIds = pIds,
+                                placeName = meta.placeName,
+                                taxonIds = tIds,
+                                taxonName = meta.taxonName,
+                                groupName = meta.group,
+                                minObs = meta.minObs,
+                                qualityGrade = meta.qualityGrade,
+                                maxPhotos = meta.maxPhotos
                             )
                         navController.navigate(Routes.GENERATING)
                     },
