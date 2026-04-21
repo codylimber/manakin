@@ -392,7 +392,10 @@ fun SettingsScreen(
                             widgetMode = value
                             lifeListService.prefs.edit().putString("widget_mode", value).apply()
                             coroutineScope.launch {
-                                com.codylimber.fieldphenology.widget.ManakinGlanceWidget().updateAll(context)
+                                val widget = com.codylimber.fieldphenology.widget.ManakinGlanceWidget()
+                                val ids = androidx.glance.appwidget.GlanceAppWidgetManager(context)
+                                    .getGlanceIds(widget.javaClass)
+                                ids.forEach { widget.update(context, it) }
                             }
                         },
                         label = { Text(label, fontSize = 12.sp) },
