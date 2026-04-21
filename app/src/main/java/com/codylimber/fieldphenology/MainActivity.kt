@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
-                    .header("User-Agent", "FieldPhenology/1.0 (Android)")
+                    .header("User-Agent", "Manakin/1.2 (Android; github.com/codylimber/manakin)")
                     .build()
                 chain.proceed(request)
             }

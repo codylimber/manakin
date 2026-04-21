@@ -25,9 +25,10 @@ fun GeneratingScreen(
     generator: DatasetGenerator,
     repository: PhenologyRepository,
     onDone: () -> Unit,
-    onCancel: () -> Unit,
-    viewModel: GeneratingViewModel = viewModel { GeneratingViewModel(generator, repository) }
+    onCancel: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val viewModel: GeneratingViewModel = viewModel { GeneratingViewModel(repository, context.applicationContext) }
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(Unit) {

@@ -1,13 +1,13 @@
 package com.codylimber.fieldphenology.ui.screens.generating
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.codylimber.fieldphenology.data.generator.DatasetGenerator
 import com.codylimber.fieldphenology.data.generator.GenerationPhase
 import com.codylimber.fieldphenology.data.generator.GenerationProgress
+import com.codylimber.fieldphenology.data.generator.GenerationService
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.navigation.GenerationParams
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -20,56 +20,52 @@ data class GeneratingState(
 )
 
 class GeneratingViewModel(
-    private val generator: DatasetGenerator,
-    private val repository: PhenologyRepository
+    private val repository: PhenologyRepository,
+    private val context: Context
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(GeneratingState())
     val state: StateFlow<GeneratingState> = _state
 
-    private var generationJob: Job? = null
-
     fun startGeneration(params: GenerationParams) {
-        if (generationJob?.isActive == true) return
+        // Start the foreground service
+        GenerationService.start(context)
 
-        generationJob = viewModelScope.launch {
-            try {
-                generator.generate(
-                    placeIds = params.placeIds,
-                    placeName = params.placeName,
-                    taxonIds = params.taxonIds,
-                    taxonName = params.taxonName,
-                    groupName = params.groupName,
-                    minObs = params.minObs,
-                    onProgress = { progress ->
-                        val completed = _state.value.completedPhases.toMutableSet()
-                        for (phase in GenerationPhase.entries) {
-                            if (phase.ordinal < progress.phase.ordinal) {
-                                completed.add(phase)
-                            }
-                        }
-                        _state.value = _state.value.copy(
-                            progress = progress,
-                            completedPhases = completed
-                        )
+        // Observe the service's state
+        viewModelScope.launch {
+            GenerationService.progress.collect { progress ->
+                if (progress != null) {
+                    val completed = _state.value.completedPhases.toMutableSet()
+                    for (phase in GenerationPhase.entries) {
+                        if (phase.ordinal < progress.phase.ordinal) completed.add(phase)
                     }
-                )
+                    _state.value = _state.value.copy(progress = progress, completedPhases = completed)
+                }
+            }
+        }
 
-                repository.reloadDatasets()
+        viewModelScope.launch {
+            GenerationService.isComplete.collect { complete ->
+                if (complete) {
+                    repository.reloadDatasets()
+                    _state.value = _state.value.copy(
+                        isComplete = true,
+                        completedPhases = GenerationPhase.entries.toSet()
+                    )
+                }
+            }
+        }
 
-                _state.value = _state.value.copy(
-                    isComplete = true,
-                    completedPhases = GenerationPhase.entries.toSet()
-                )
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                // User cancelled
-            } catch (e: Exception) {
-                _state.value = _state.value.copy(error = e.message ?: "Unknown error")
+        viewModelScope.launch {
+            GenerationService.error.collect { error ->
+                if (error != null) {
+                    _state.value = _state.value.copy(error = error)
+                }
             }
         }
     }
 
     fun cancel() {
-        generationJob?.cancel()
+        GenerationService.stop(context)
     }
 }

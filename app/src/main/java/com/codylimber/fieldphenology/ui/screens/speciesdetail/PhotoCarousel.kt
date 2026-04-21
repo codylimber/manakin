@@ -51,7 +51,7 @@ fun PhotoCarousel(
                 // Attribution overlay
                 if (!photo.attribution.isNullOrEmpty()) {
                     Text(
-                        text = photo.attribution,
+                        text = "${photo.attribution} (via iNaturalist)",
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 10.sp,
                         modifier = Modifier
