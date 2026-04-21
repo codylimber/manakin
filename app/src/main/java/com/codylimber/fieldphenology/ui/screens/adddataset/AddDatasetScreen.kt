@@ -1,5 +1,6 @@
 package com.codylimber.fieldphenology.ui.screens.adddataset
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,12 +8,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.codylimber.fieldphenology.data.api.INatApiClient
@@ -169,39 +172,132 @@ fun AddDatasetScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Group label
+            // Tab label
             Text("Tab Label", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             OutlinedTextField(
                 value = state.groupLabel,
                 onValueChange = { viewModel.onGroupLabelChanged(it) },
-                placeholder = { Text("e.g., Herps, Trip Species") },
+                placeholder = { Text("e.g., CT Butterflies") },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Min observations
-            Text("Minimum Observations", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text(
-                "Species with fewer than this many total observations will be excluded. " +
-                "Higher values give you a smaller list of more reliably observed species. " +
-                "Lower values include rarer species but with less phenology data.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                lineHeight = 16.sp
-            )
-            OutlinedTextField(
-                value = state.minObs,
-                onValueChange = { viewModel.onMinObsChanged(it) },
-                placeholder = { Text("1") },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
-                modifier = Modifier.width(120.dp)
-            )
+            Spacer(modifier = Modifier.height(4.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Advanced options
+            TextButton(
+                onClick = { viewModel.toggleAdvanced() },
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Icon(
+                    if (state.showAdvanced) Icons.Default.KeyboardArrowUp
+                    else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Advanced Options", color = Primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            AnimatedVisibility(visible = state.showAdvanced) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Min observations
+                    Text("Minimum Observations", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Species with fewer observations will be excluded. Higher = smaller, more reliable list.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                    OutlinedTextField(
+                        value = state.minObs,
+                        onValueChange = { viewModel.onMinObsChanged(it) },
+                        placeholder = { Text("10") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
+                        modifier = Modifier.width(120.dp)
+                    )
+
+                    // Quality grade
+                    Text("Quality Grade", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = state.qualityGrade == "research",
+                            onClick = { viewModel.onQualityGradeChanged("research") },
+                            label = { Text("Research Grade", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                selectedLabelColor = Primary
+                            )
+                        )
+                        FilterChip(
+                            selected = state.qualityGrade == "research,needs_id",
+                            onClick = { viewModel.onQualityGradeChanged("research,needs_id") },
+                            label = { Text("+ Needs ID", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                selectedLabelColor = Primary
+                            )
+                        )
+                    }
+
+                    // Max photos
+                    Text("Photos per Species", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = state.maxPhotos,
+                        onValueChange = { viewModel.onMaxPhotosChanged(it) },
+                        placeholder = { Text("3") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
+                        modifier = Modifier.width(120.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Estimate card
+            if (state.isEstimating) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Primary)
+                        Text("Estimating...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                    }
+                }
+            } else if (state.estimatedSpecies != null) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Estimate", color = Primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        val count = state.estimatedSpecies!!
+                        val sizeMb = state.estimatedSizeMb!!
+                        val minutes = state.estimatedMinutes!!
+                        val sizeStr = if (sizeMb < 1) "< 1 MB" else "~${sizeMb.toInt()} MB"
+                        val timeStr = if (minutes < 1) "< 1 min" else "~${minutes.toInt()} min"
+                        Text(
+                            "~$count species  \u2022  $sizeStr  \u2022  $timeStr",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             // Generate button
             Button(
@@ -220,7 +316,9 @@ fun AddDatasetScreen(
                         taxonIds = taxonIds,
                         taxonName = taxonName,
                         groupName = state.groupLabel,
-                        minObs = state.minObs.toIntOrNull() ?: 1
+                        minObs = state.minObs.toIntOrNull() ?: 1,
+                        qualityGrade = state.qualityGrade,
+                        maxPhotos = state.maxPhotos.toIntOrNull() ?: 3
                     )
                     onGenerate()
                 },
@@ -231,12 +329,6 @@ fun AddDatasetScreen(
             ) {
                 Text("Generate Dataset", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
-
-            Text(
-                "This will take several minutes depending on the number of species (~2 seconds per species).",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp
-            )
         }
     }
 }

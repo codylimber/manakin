@@ -6,7 +6,9 @@ data class GenerationParams(
     val taxonIds: List<Int?>,
     val taxonName: String,
     val groupName: String,
-    val minObs: Int
+    val minObs: Int,
+    val qualityGrade: String = "research",
+    val maxPhotos: Int = 3
 ) {
     companion object {
         var current: GenerationParams? = null

@@ -117,13 +117,15 @@ fun RarityChip(rarity: String, modifier: Modifier = Modifier) {
 @Composable
 fun ConservationBadge(status: String?, modifier: Modifier = Modifier) {
     if (status == null) return
+    val iucnStatuses = setOf("LC", "NT", "VU", "EN", "CR", "EW", "EX")
+    if (status.uppercase() !in iucnStatuses) return
     val color = when (status.uppercase()) {
         "LC" -> ConservationLC
         "NT" -> ConservationNT
         "VU" -> ConservationVU
         "EN" -> ConservationEN
-        "CR" -> ConservationCR
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        "CR", "EW", "EX" -> ConservationCR
+        else -> return
     }
     Text(
         text = status.uppercase(),

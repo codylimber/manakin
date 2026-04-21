@@ -101,6 +101,8 @@ class GenerationService : Service() {
                     taxonName = params.taxonName,
                     groupName = params.groupName,
                     minObs = params.minObs,
+                    qualityGrade = params.qualityGrade,
+                    maxPhotos = params.maxPhotos,
                     onProgress = { progress ->
                         _progress.value = progress
                         updateNotification(progress.message)

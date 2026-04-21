@@ -139,6 +139,52 @@ class INatApiClient(private val client: OkHttpClient) {
         } ?: emptyList()
     }
 
+    suspend fun getObservationPhotos(
+        taxonId: Int,
+        placeIds: List<Int>,
+        qualityGrade: String = "research",
+        maxResults: Int = 5
+    ): List<JsonObject> {
+        val params = mutableMapOf(
+            "taxon_id" to taxonId.toString(),
+            "quality_grade" to qualityGrade,
+            "photos" to "true",
+            "photo_licensed" to "true",
+            "per_page" to maxResults.toString(),
+            "order_by" to "votes"
+        )
+        if (placeIds.isNotEmpty()) {
+            params["place_id"] = placeIds.joinToString(",")
+        }
+        val data = get("observations", params, intervalMs = INTERACTIVE_INTERVAL_MS)
+        val results = data["results"]?.jsonArray ?: return emptyList()
+        val photos = mutableListOf<JsonObject>()
+        for (obs in results) {
+            val obsPhotos = obs.jsonObject["photos"]?.jsonArray ?: continue
+            for (p in obsPhotos) {
+                val photo = try { p.jsonObject } catch (_: Exception) { continue }
+                val license = photo["license_code"]?.jsonPrimitive?.contentOrNull
+                if (license != null && license.startsWith("cc")) {
+                    photos.add(photo)
+                }
+            }
+        }
+        return photos
+    }
+
+    suspend fun getSpeciesCountEstimate(
+        taxonId: Int?,
+        placeIds: List<Int>,
+        qualityGrade: String = "research"
+    ): Int {
+        var total = 0
+        for (placeId in placeIds) {
+            val (count, _) = getSpeciesCounts(taxonId, placeId, qualityGrade, page = 1, perPage = 1)
+            total += count
+        }
+        return total
+    }
+
     // --- Data endpoints ---
 
     suspend fun getSpeciesCounts(

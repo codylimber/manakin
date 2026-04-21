@@ -12,11 +12,16 @@ data class Dataset(
 data class DatasetMetadata(
     val placeName: String,
     val placeId: Int,
+    val placeIds: List<Int> = emptyList(),
     val group: String,
     val taxonName: String,
+    val taxonIds: List<Int> = emptyList(),
     val totalObs: Int,
     val speciesCount: Int,
-    val generatedAt: String
+    val generatedAt: String,
+    val minObs: Int = 10,
+    val qualityGrade: String = "research",
+    val maxPhotos: Int = 3
 )
 
 @Serializable
