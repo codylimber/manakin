@@ -4,7 +4,7 @@ A field companion app for exploring species phenology — what's active near you
 
 Manakin uses community science data from [iNaturalist](https://www.inaturalist.org) to show you which species are most likely to be observed in your area this week, when they'll peak, and how their activity changes throughout the year.
 
-Named after the manakin — a family of small, colorful birds known for their elaborate courtship displays. Also a play on Merlin (the bird ID app), but for all of nature.
+Named after the White-throated Manakin because it was the only .png of any animal that I had on my computer that I had made. Also a play on Merlin (the bird ID app), but for all of nature.
 
 ## Features
 
