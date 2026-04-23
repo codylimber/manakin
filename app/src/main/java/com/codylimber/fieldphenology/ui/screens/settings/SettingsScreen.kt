@@ -311,9 +311,9 @@ fun SettingsScreen(
                         lifeListService.prefs.edit().putBoolean("weekly_digest_enabled", it).apply()
                         if (it) {
                             com.codylimber.fieldphenology.notifications.WeeklyDigestWorker.schedule(
-                                context, AppSettings.digestDay, AppSettings.digestHour
+                                context, AppSettings.digestHour
                             )
-                        } else {
+                        } else if (!AppSettings.targetNotificationsEnabled) {
                             com.codylimber.fieldphenology.notifications.WeeklyDigestWorker.cancel(context)
                         }
                     },
@@ -324,19 +324,28 @@ fun SettingsScreen(
             if (AppSettings.weeklyDigestEnabled) {
                 val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
                 Column {
-                    Text("Digest Day", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                    Text("Digest Days", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                    Text("Select one or more days to receive your digest",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         days.forEachIndexed { idx, day ->
-                            val calDay = idx + 1 // Calendar.SUNDAY = 1
+                            val calDay = idx + 1
+                            val isSelected = calDay in AppSettings.digestDays
                             FilterChip(
-                                selected = AppSettings.digestDay == calDay,
+                                selected = isSelected,
                                 onClick = {
-                                    AppSettings.digestDay = calDay
-                                    lifeListService.prefs.edit().putInt("digest_day", calDay).apply()
-                                    com.codylimber.fieldphenology.notifications.WeeklyDigestWorker.schedule(
-                                        context, calDay, AppSettings.digestHour
-                                    )
+                                    val newDays = if (isSelected) {
+                                        // Don't allow deselecting the last day
+                                        if (AppSettings.digestDays.size > 1) AppSettings.digestDays - calDay
+                                        else AppSettings.digestDays
+                                    } else {
+                                        AppSettings.digestDays + calDay
+                                    }
+                                    AppSettings.digestDays = newDays
+                                    lifeListService.prefs.edit()
+                                        .putStringSet("digest_days", newDays.map { it.toString() }.toSet())
+                                        .apply()
                                 },
                                 label = { Text(day, fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
@@ -367,15 +376,71 @@ fun SettingsScreen(
                     onCheckedChange = {
                         AppSettings.targetNotificationsEnabled = it
                         lifeListService.prefs.edit().putBoolean("target_notifications_enabled", it).apply()
-                        // Ensure the weekly worker is scheduled if either notification is enabled
-                        if (it && !AppSettings.weeklyDigestEnabled) {
+                        if (it) {
                             com.codylimber.fieldphenology.notifications.WeeklyDigestWorker.schedule(
-                                context, AppSettings.digestDay, AppSettings.digestHour
+                                context, AppSettings.digestHour
                             )
+                        } else if (!AppSettings.weeklyDigestEnabled) {
+                            com.codylimber.fieldphenology.notifications.WeeklyDigestWorker.cancel(context)
                         }
                     },
                     colors = SwitchDefaults.colors(checkedTrackColor = Primary)
                 )
+            }
+
+            // Notification dataset filter
+            if (AppSettings.weeklyDigestEnabled || AppSettings.targetNotificationsEnabled) {
+                val allKeys = repository.getKeys()
+                if (allKeys.size > 1) {
+                    Column {
+                        Text("Notification Datasets", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                        Text(
+                            if (AppSettings.notificationDatasetKeys.isEmpty()) "Receiving notifications for all datasets"
+                            else "Receiving notifications for ${AppSettings.notificationDatasetKeys.size} of ${allKeys.size} datasets",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            allKeys.forEach { key ->
+                                val isSelected = AppSettings.notificationDatasetKeys.isEmpty() || key in AppSettings.notificationDatasetKeys
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        val current = AppSettings.notificationDatasetKeys
+                                        val newKeys = if (current.isEmpty()) {
+                                            // Switching from "all" to specific — select all except this one
+                                            (allKeys.toSet() - key)
+                                        } else if (key in current) {
+                                            // Deselecting — don't allow empty (that means "all")
+                                            val removed = current - key
+                                            if (removed.isEmpty()) emptySet() else removed
+                                        } else {
+                                            // Adding one back
+                                            val added = current + key
+                                            if (added.size == allKeys.size) emptySet() else added
+                                        }
+                                        AppSettings.notificationDatasetKeys = newKeys
+                                        lifeListService.prefs.edit()
+                                            .putStringSet("notification_dataset_keys", newKeys)
+                                            .apply()
+                                    },
+                                    label = {
+                                        Column {
+                                            Text(repository.getGroupName(key), fontSize = 12.sp)
+                                            Text(repository.getPlaceNameForKey(key), fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Primary.copy(alpha = 0.2f),
+                                        selectedLabelColor = Primary
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Widget settings

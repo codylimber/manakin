@@ -15,9 +15,10 @@ object AppSettings {
     var showActiveOnly by mutableStateOf(true)
     var targetMode by mutableStateOf("STARRED")
     var weeklyDigestEnabled by mutableStateOf(false)
-    var digestDay by mutableStateOf(2) // Monday=2 in Calendar
+    var digestDays by mutableStateOf(setOf(2)) // Calendar day constants: Sunday=1..Saturday=7
     var digestHour by mutableStateOf(8)
     var targetNotificationsEnabled by mutableStateOf(false)
+    var notificationDatasetKeys by mutableStateOf(setOf<String>()) // empty = all datasets
 
     private var prefs: SharedPreferences? = null
 
@@ -25,9 +26,13 @@ object AppSettings {
         this.prefs = prefs
         favorites = prefs.getStringSet("favorites", emptySet())!!.mapNotNull { it.toIntOrNull() }.toSet()
         weeklyDigestEnabled = prefs.getBoolean("weekly_digest_enabled", false)
-        digestDay = prefs.getInt("digest_day", 2)
+        // Migrate old single digestDay to digestDays set
+        val oldDay = prefs.getInt("digest_day", -1)
+        digestDays = prefs.getStringSet("digest_days", null)?.mapNotNull { it.toIntOrNull() }?.toSet()
+            ?: if (oldDay >= 1) setOf(oldDay) else setOf(2)
         digestHour = prefs.getInt("digest_hour", 8)
         targetNotificationsEnabled = prefs.getBoolean("target_notifications_enabled", false)
+        notificationDatasetKeys = prefs.getStringSet("notification_dataset_keys", emptySet()) ?: emptySet()
     }
 
     fun toggleFavorite(taxonId: Int) {

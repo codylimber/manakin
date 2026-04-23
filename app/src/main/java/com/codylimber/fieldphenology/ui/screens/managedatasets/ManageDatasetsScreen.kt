@@ -40,6 +40,7 @@ fun ManageDatasetsScreen(
 ) {
     var datasets by remember { mutableStateOf(repository.getAllDatasets()) }
     var deleteTarget by remember { mutableStateOf<DatasetInfo?>(null) }
+    var showBundleExport by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
     // Refresh when returning to this screen
@@ -96,6 +97,19 @@ fun ManageDatasetsScreen(
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp + bottomBarHeight),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val exportable = datasets.filter { it.source == DatasetSource.INTERNAL }
+                if (exportable.size > 1) {
+                    item {
+                        OutlinedButton(
+                            onClick = { showBundleExport = true },
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp), tint = Primary)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Export Bundle", color = Primary, fontSize = 13.sp)
+                        }
+                    }
+                }
                 items(datasets) { info ->
                     Card(
                         shape = RoundedCornerShape(12.dp),
@@ -157,6 +171,76 @@ fun ManageDatasetsScreen(
                     }
                 }
             }
+        }
+
+        // Bundle export dialog
+        if (showBundleExport) {
+            val exportable = datasets.filter { it.source == DatasetSource.INTERNAL }
+            var selectedKeys by remember { mutableStateOf(exportable.map { it.key }.toSet()) }
+            var bundleName by remember { mutableStateOf("my-datasets") }
+
+            AlertDialog(
+                onDismissRequest = { showBundleExport = false },
+                title = { Text("Export Bundle") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Select datasets to include:", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        exportable.forEach { info ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Checkbox(
+                                    checked = info.key in selectedKeys,
+                                    onCheckedChange = { checked ->
+                                        selectedKeys = if (checked) selectedKeys + info.key else selectedKeys - info.key
+                                    },
+                                    colors = CheckboxDefaults.colors(checkedColor = Primary)
+                                )
+                                Column {
+                                    Text(info.group, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(info.placeName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = bundleName,
+                            onValueChange = { bundleName = it },
+                            label = { Text("Bundle name") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val zipFile = repository.exportBundle(selectedKeys.toList(), bundleName)
+                            if (zipFile != null) {
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", zipFile)
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/octet-stream"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    putExtra(Intent.EXTRA_TEXT,
+                                        "Manakin dataset bundle: ${selectedKeys.size} datasets.\n\n" +
+                                        "To import: Open Manakin > Datasets tab > tap + > Advanced Options > Import Dataset, then select this file."
+                                    )
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(intent, "Share Bundle"))
+                            }
+                            showBundleExport = false
+                        },
+                        enabled = selectedKeys.isNotEmpty()
+                    ) { Text("Export", color = Primary) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showBundleExport = false }) { Text("Cancel") }
+                }
+            )
         }
 
         // Delete confirmation dialog

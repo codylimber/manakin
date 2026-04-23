@@ -180,9 +180,36 @@ class PhenologyRepository(private val context: Context) {
         return zipFile
     }
 
+    fun exportBundle(keys: List<String>, bundleName: String): java.io.File? {
+        val zipFile = File(context.cacheDir, "$bundleName.manakin-bundle")
+        try {
+            java.util.zip.ZipOutputStream(zipFile.outputStream()).use { zip ->
+                for (key in keys) {
+                    val source = keySources[key] ?: continue
+                    val dir = keyDirNames[key] ?: continue
+                    val sourceDir = when (source) {
+                        DatasetSource.INTERNAL -> File(context.filesDir, "datasets/$dir")
+                        DatasetSource.ASSET -> continue
+                    }
+                    if (!sourceDir.isDirectory) continue
+
+                    sourceDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                        val entryName = "$dir/${file.relativeTo(sourceDir).path}"
+                        zip.putNextEntry(java.util.zip.ZipEntry(entryName))
+                        file.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                }
+            }
+            return zipFile
+        } catch (e: Exception) {
+            android.util.Log.e("PhenologyRepo", "Bundle export failed", e)
+            return null
+        }
+    }
+
     fun importDataset(inputStream: java.io.InputStream): Boolean {
         return try {
-            // Extract to a temp dir first to read metadata
             val tempDir = File(context.cacheDir, "import_temp_${System.currentTimeMillis()}")
             tempDir.mkdirs()
 
@@ -199,19 +226,22 @@ class PhenologyRepository(private val context: Context) {
                 }
             }
 
-            // Read the dataset.json to get the slug
-            val jsonFile = File(tempDir, "dataset.json")
-            if (!jsonFile.exists()) { tempDir.deleteRecursively(); return false }
-
-            val dataset = json.decodeFromString<Dataset>(jsonFile.readText())
-            val slug = "${dataset.metadata.group}-${dataset.metadata.placeName}".lowercase()
-                .replace(Regex("[^a-z0-9]+"), "-").trim('-')
-
-            // Move to datasets dir
-            val destDir = File(context.filesDir, "datasets/$slug")
-            if (destDir.exists()) destDir.deleteRecursively()
-            tempDir.copyRecursively(destDir, overwrite = true)
-            tempDir.deleteRecursively()
+            // Check if this is a single dataset or a bundle
+            val topLevelJson = File(tempDir, "dataset.json")
+            if (topLevelJson.exists()) {
+                // Single dataset
+                importSingleDataset(tempDir)
+            } else {
+                // Bundle — each subdirectory is a separate dataset
+                var anySuccess = false
+                tempDir.listFiles()?.filter { it.isDirectory }?.forEach { subDir ->
+                    if (File(subDir, "dataset.json").exists()) {
+                        if (importSingleDataset(subDir)) anySuccess = true
+                    }
+                }
+                tempDir.deleteRecursively()
+                if (!anySuccess) return false
+            }
 
             reloadDatasets()
             true
@@ -219,6 +249,20 @@ class PhenologyRepository(private val context: Context) {
             android.util.Log.e("PhenologyRepo", "Import failed", e)
             false
         }
+    }
+
+    private fun importSingleDataset(tempDir: File): Boolean {
+        val jsonFile = File(tempDir, "dataset.json")
+        if (!jsonFile.exists()) return false
+
+        val dataset = json.decodeFromString<Dataset>(jsonFile.readText())
+        val slug = "${dataset.metadata.group}-${dataset.metadata.placeName}".lowercase()
+            .replace(Regex("[^a-z0-9]+"), "-").trim('-')
+
+        val destDir = File(context.filesDir, "datasets/$slug")
+        if (destDir.exists()) destDir.deleteRecursively()
+        tempDir.copyRecursively(destDir, overwrite = true)
+        return true
     }
 
     fun mergeAllDatasets(): String? {
