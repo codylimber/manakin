@@ -362,25 +362,39 @@ class SpeciesListViewModel(
 
         val useSci = AppSettings.useScientificNames
         val distinctOrders = sorted.mapNotNull { it.species.order }.distinct()
-        val useOrder = distinctOrders.size > 1
+        val multipleOrders = distinctOrders.size > 1
 
         val headers = mutableMapOf<Int, String>()
-        var lastGroup = ""
+        var lastOrder = ""
+        var lastFamily = ""
         for ((index, item) in sorted.withIndex()) {
-            val group = if (useOrder) {
-                val common = item.species.order ?: "Unknown"
-                val sci = item.species.orderScientific
-                if (useSci) sci ?: common
-                else if (sci != null) "$common ($sci)" else common
-            } else {
-                val common = item.species.family ?: "Unknown"
-                val sci = item.species.familyScientific
-                if (useSci) sci ?: common
-                else if (sci != null) "$common ($sci)" else common
+            val order = item.species.order ?: ""
+            val familyCommon = item.species.family ?: "Unknown"
+            val familySci = item.species.familyScientific
+
+            // Insert order header when order changes and there are multiple orders
+            if (multipleOrders && order != lastOrder) {
+                val orderCommon = item.species.order ?: "Unknown"
+                val orderSci = item.species.orderScientific
+                val orderLabel = if (useSci) orderSci ?: orderCommon
+                    else if (orderSci != null) "$orderCommon ($orderSci)" else orderCommon
+                headers[index] = orderLabel
+                lastOrder = order
+                lastFamily = "" // force family header after order header
             }
-            if (group != lastGroup) {
-                headers[index] = group
-                lastGroup = group
+
+            // Always insert family header when family changes
+            val familyKey = "$order/$familyCommon"
+            if (familyKey != lastFamily) {
+                val familyLabel = if (useSci) familySci ?: familyCommon
+                    else if (familySci != null) "$familyCommon ($familySci)" else familyCommon
+                // If we just inserted an order header at this index, combine them
+                if (headers.containsKey(index)) {
+                    headers[index] = headers[index] + "\n" + familyLabel
+                } else {
+                    headers[index] = familyLabel
+                }
+                lastFamily = familyKey
             }
         }
         return headers

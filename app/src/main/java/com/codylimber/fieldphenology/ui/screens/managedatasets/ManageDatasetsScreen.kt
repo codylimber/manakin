@@ -5,8 +5,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import android.content.Intent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -30,6 +28,7 @@ import com.codylimber.fieldphenology.ui.theme.Primary
 @Composable
 fun ManageDatasetsScreen(
     repository: PhenologyRepository,
+    bottomBarHeight: androidx.compose.ui.unit.Dp = 0.dp,
     onBack: (() -> Unit)? = null,
     onAddDataset: () -> Unit = {},
     onUpdateDataset: ((meta: com.codylimber.fieldphenology.data.model.DatasetMetadata) -> Unit)? = null,
@@ -42,16 +41,6 @@ fun ManageDatasetsScreen(
     var datasets by remember { mutableStateOf(repository.getAllDatasets()) }
     var deleteTarget by remember { mutableStateOf<DatasetInfo?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
-
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let {
-            context.contentResolver.openInputStream(it)?.let { stream ->
-                if (repository.importDataset(stream)) {
-                    datasets = repository.getAllDatasets()
-                }
-            }
-        }
-    }
 
     // Refresh when returning to this screen
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -88,7 +77,7 @@ fun ManageDatasetsScreen(
             FloatingActionButton(
                 onClick = onAddDataset,
                 containerColor = Primary,
-                modifier = Modifier.padding(bottom = 72.dp)
+                modifier = Modifier.padding(bottom = bottomBarHeight)
             ) {
                 Icon(Icons.Default.Add, "Add Dataset")
             }
@@ -104,19 +93,9 @@ fun ManageDatasetsScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(12.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp + bottomBarHeight),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Action buttons
-                item {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { importLauncher.launch(arrayOf("*/*")) },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Import Dataset", color = Primary, fontSize = 13.sp) }
-                    }
-                }
                 items(datasets) { info ->
                     Card(
                         shape = RoundedCornerShape(12.dp),
@@ -159,6 +138,10 @@ fun ManageDatasetsScreen(
                                         val intent = Intent(Intent.ACTION_SEND).apply {
                                             type = "application/octet-stream"
                                             putExtra(Intent.EXTRA_STREAM, uri)
+                                            putExtra(Intent.EXTRA_TEXT,
+                                                "${info.group} — ${info.placeName} dataset for Manakin.\n\n" +
+                                                "To import: Open Manakin > Datasets tab > tap + > Advanced Options > Import Dataset, then select this .manakin file."
+                                            )
                                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         }
                                         context.startActivity(Intent.createChooser(intent, "Share Dataset"))

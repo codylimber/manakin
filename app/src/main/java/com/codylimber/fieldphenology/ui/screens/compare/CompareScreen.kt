@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.compare
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,6 +27,8 @@ import com.codylimber.fieldphenology.ui.theme.Primary
 import java.time.LocalDate
 import java.time.temporal.IsoFields
 
+enum class CompareViewMode { ALL, ONLY_A, SHARED, ONLY_B }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompareScreen(
@@ -37,8 +42,19 @@ fun CompareScreen(
     var keyB by remember { mutableStateOf(keys.getOrNull(1) ?: "") }
     var expandedA by remember { mutableStateOf(false) }
     var expandedB by remember { mutableStateOf(false) }
+    var viewMode by remember { mutableStateOf(CompareViewMode.ALL) }
     val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     val hasLifeList = lifeListService?.hasUsername() == true
+
+    // Filter keyB to same taxon group as keyA
+    val compatibleKeysForB = keys.filter { repository.getTaxonGroup(it) == repository.getTaxonGroup(keyA) && it != keyA }
+
+    // Auto-correct keyB when keyA changes
+    LaunchedEffect(keyA) {
+        if (keyB !in compatibleKeysForB) {
+            keyB = compatibleKeysForB.firstOrNull() ?: ""
+        }
+    }
     val observedIds = remember(keys) {
         if (lifeListService == null || !hasLifeList) emptySet()
         else keys.flatMap { lifeListService.getObservedForScope(it) }.toSet()
@@ -100,7 +116,7 @@ fun CompareScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(modifier = Modifier.weight(1f)) {
                         OutlinedButton(onClick = { expandedA = true }, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            Text(repository.getGroupName(keyA), fontSize = 13.sp, maxLines = 1)
+                            Text(repository.getPlaceNameForKey(keyA), fontSize = 13.sp, maxLines = 1)
                         }
                         DropdownMenu(expanded = expandedA, onDismissRequest = { expandedA = false }) {
                             keys.forEach { key ->
@@ -115,11 +131,19 @@ fun CompareScreen(
                     }
                     Text("vs", modifier = Modifier.align(Alignment.CenterVertically), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Box(modifier = Modifier.weight(1f)) {
-                        OutlinedButton(onClick = { expandedB = true }, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            Text(repository.getGroupName(keyB), fontSize = 13.sp, maxLines = 1)
+                        OutlinedButton(
+                            onClick = { if (compatibleKeysForB.isNotEmpty()) expandedB = true },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = compatibleKeysForB.isNotEmpty()
+                        ) {
+                            Text(
+                                if (keyB.isNotEmpty()) repository.getPlaceNameForKey(keyB) else "—",
+                                fontSize = 13.sp, maxLines = 1
+                            )
                         }
                         DropdownMenu(expanded = expandedB, onDismissRequest = { expandedB = false }) {
-                            keys.forEach { key ->
+                            compatibleKeysForB.forEach { key ->
                                 DropdownMenuItem(text = {
                                     Column {
                                         Text(repository.getGroupName(key), fontSize = 14.sp)
@@ -135,9 +159,27 @@ fun CompareScreen(
             // Summary
             item {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    SummaryChip("Only ${repository.getGroupName(keyA)}", onlyA.size, Primary)
-                    SummaryChip("Shared", shared.size, MaterialTheme.colorScheme.onSurfaceVariant)
-                    SummaryChip("Only ${repository.getGroupName(keyB)}", onlyB.size, Primary)
+                    SummaryChip(
+                        label = "Only ${repository.getPlaceNameForKey(keyA)}",
+                        count = onlyA.size,
+                        color = Primary,
+                        selected = viewMode == CompareViewMode.ONLY_A,
+                        onClick = { viewMode = if (viewMode == CompareViewMode.ONLY_A) CompareViewMode.ALL else CompareViewMode.ONLY_A }
+                    )
+                    SummaryChip(
+                        label = "Shared",
+                        count = shared.size,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selected = viewMode == CompareViewMode.SHARED,
+                        onClick = { viewMode = if (viewMode == CompareViewMode.SHARED) CompareViewMode.ALL else CompareViewMode.SHARED }
+                    )
+                    SummaryChip(
+                        label = "Only ${repository.getPlaceNameForKey(keyB)}",
+                        count = onlyB.size,
+                        color = Primary,
+                        selected = viewMode == CompareViewMode.ONLY_B,
+                        onClick = { viewMode = if (viewMode == CompareViewMode.ONLY_B) CompareViewMode.ALL else CompareViewMode.ONLY_B }
+                    )
                 }
             }
 
@@ -157,35 +199,41 @@ fun CompareScreen(
             }
 
             // Only in A
-            val filteredA = filterSpecies(onlyA.values)
-            if (filteredA.isNotEmpty()) {
-                item { Text("Only in $nameA (${filteredA.size})", color = Primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
-                items(filteredA) { sp ->
-                    val photoUri = sp.photos.firstOrNull()?.let { repository.getPhotoUri(keyA, it.file) }
-                    SpeciesCard(species = sp, status = SpeciesStatus.classify(sp, currentWeek), currentWeek = currentWeek, isObserved = sp.taxonId in observedIds, showObservedIndicator = hasLifeList,
-                        photoUri = photoUri, onClick = { onSpeciesClick(sp.taxonId) })
-                }
-            }
-
-            // Only in B
-            val filteredB = filterSpecies(onlyB.values)
-            if (filteredB.isNotEmpty()) {
-                item { Text("Only in $nameB (${filteredB.size})", color = Primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
-                items(filteredB) { sp ->
-                    val photoUri = sp.photos.firstOrNull()?.let { repository.getPhotoUri(keyB, it.file) }
-                    SpeciesCard(species = sp, status = SpeciesStatus.classify(sp, currentWeek), currentWeek = currentWeek, isObserved = sp.taxonId in observedIds, showObservedIndicator = hasLifeList,
-                        photoUri = photoUri, onClick = { onSpeciesClick(sp.taxonId) })
+            if (viewMode == CompareViewMode.ALL || viewMode == CompareViewMode.ONLY_A) {
+                val filteredA = filterSpecies(onlyA.values)
+                if (filteredA.isNotEmpty()) {
+                    item { Text("Only in $nameA (${filteredA.size})", color = Primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
+                    items(filteredA) { sp ->
+                        val photoUri = sp.photos.firstOrNull()?.let { repository.getPhotoUri(keyA, it.file) }
+                        SpeciesCard(species = sp, status = SpeciesStatus.classify(sp, currentWeek), currentWeek = currentWeek, isObserved = sp.taxonId in observedIds, showObservedIndicator = hasLifeList,
+                            photoUri = photoUri, onClick = { onSpeciesClick(sp.taxonId) })
+                    }
                 }
             }
 
             // Shared
-            val filteredShared = filterSpecies(shared.values)
-            if (filteredShared.isNotEmpty()) {
-                item { Text("In both (${filteredShared.size})", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
-                items(filteredShared) { sp ->
-                    val photoUri = sp.photos.firstOrNull()?.let { repository.getPhotoUri(keyA, it.file) }
-                    SpeciesCard(species = sp, status = SpeciesStatus.classify(sp, currentWeek), currentWeek = currentWeek, isObserved = sp.taxonId in observedIds, showObservedIndicator = hasLifeList,
-                        photoUri = photoUri, onClick = { onSpeciesClick(sp.taxonId) })
+            if (viewMode == CompareViewMode.ALL || viewMode == CompareViewMode.SHARED) {
+                val filteredShared = filterSpecies(shared.values)
+                if (filteredShared.isNotEmpty()) {
+                    item { Text("In both (${filteredShared.size})", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
+                    items(filteredShared) { sp ->
+                        val photoUri = sp.photos.firstOrNull()?.let { repository.getPhotoUri(keyA, it.file) }
+                        SpeciesCard(species = sp, status = SpeciesStatus.classify(sp, currentWeek), currentWeek = currentWeek, isObserved = sp.taxonId in observedIds, showObservedIndicator = hasLifeList,
+                            photoUri = photoUri, onClick = { onSpeciesClick(sp.taxonId) })
+                    }
+                }
+            }
+
+            // Only in B
+            if (viewMode == CompareViewMode.ALL || viewMode == CompareViewMode.ONLY_B) {
+                val filteredB = filterSpecies(onlyB.values)
+                if (filteredB.isNotEmpty()) {
+                    item { Text("Only in $nameB (${filteredB.size})", color = Primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
+                    items(filteredB) { sp ->
+                        val photoUri = sp.photos.firstOrNull()?.let { repository.getPhotoUri(keyB, it.file) }
+                        SpeciesCard(species = sp, status = SpeciesStatus.classify(sp, currentWeek), currentWeek = currentWeek, isObserved = sp.taxonId in observedIds, showObservedIndicator = hasLifeList,
+                            photoUri = photoUri, onClick = { onSpeciesClick(sp.taxonId) })
+                    }
                 }
             }
 
@@ -195,9 +243,22 @@ fun CompareScreen(
 }
 
 @Composable
-private fun SummaryChip(label: String, count: Int, color: androidx.compose.ui.graphics.Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun SummaryChip(
+    label: String,
+    count: Int,
+    color: androidx.compose.ui.graphics.Color,
+    selected: Boolean = false,
+    onClick: () -> Unit = {}
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) Primary.copy(alpha = 0.15f) else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
         Text("$count", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color)
-        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
     }
 }

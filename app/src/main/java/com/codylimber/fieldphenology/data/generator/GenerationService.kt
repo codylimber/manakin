@@ -36,6 +36,10 @@ class GenerationService : Service() {
         private val _error = MutableStateFlow<String?>(null)
         val error: StateFlow<String?> = _error
 
+        private val _queue = mutableListOf<GenerationParams>()
+        private val _queueSize = MutableStateFlow(0)
+        val queueSize: StateFlow<Int> = _queueSize
+
         fun reset() {
             _progress.value = null
             _isRunning.value = false
@@ -53,7 +57,31 @@ class GenerationService : Service() {
             }
         }
 
+        fun enqueue(context: Context, params: GenerationParams) {
+            if (_isRunning.value) {
+                synchronized(_queue) {
+                    _queue.add(params)
+                    _queueSize.value = _queue.size
+                }
+            } else {
+                GenerationParams.current = params
+                start(context)
+            }
+        }
+
+        internal fun dequeueNext(): GenerationParams? {
+            synchronized(_queue) {
+                val next = _queue.removeFirstOrNull()
+                _queueSize.value = _queue.size
+                return next
+            }
+        }
+
         fun stop(context: Context) {
+            synchronized(_queue) {
+                _queue.clear()
+                _queueSize.value = 0
+            }
             context.stopService(Intent(context, GenerationService::class.java))
         }
     }
@@ -93,33 +121,47 @@ class GenerationService : Service() {
         val generator = DatasetGenerator(apiClient, applicationContext)
 
         job = scope.launch {
-            try {
-                generator.generate(
-                    placeIds = params.placeIds,
-                    placeName = params.placeName,
-                    taxonIds = params.taxonIds,
-                    taxonName = params.taxonName,
-                    groupName = params.groupName,
-                    minObs = params.minObs,
-                    qualityGrade = params.qualityGrade,
-                    maxPhotos = params.maxPhotos,
-                    onProgress = { progress ->
-                        _progress.value = progress
-                        updateNotification(progress.message)
-                    }
-                )
-                _isComplete.value = true
-                updateNotification("Complete!")
-            } catch (e: CancellationException) {
-                // User cancelled
-            } catch (e: Exception) {
-                _error.value = e.message ?: "Unknown error"
-                updateNotification("Error: ${e.message}")
-            } finally {
-                _isRunning.value = false
-                delay(2000)
-                stopSelf()
+            var currentParams: GenerationParams = params
+            while (true) {
+                try {
+                    _isComplete.value = false
+                    _error.value = null
+                    _progress.value = null
+
+                    generator.generate(
+                        placeIds = currentParams.placeIds,
+                        placeName = currentParams.placeName,
+                        taxonIds = currentParams.taxonIds,
+                        taxonName = currentParams.taxonName,
+                        groupName = currentParams.groupName,
+                        minObs = currentParams.minObs,
+                        qualityGrade = currentParams.qualityGrade,
+                        maxPhotos = currentParams.maxPhotos,
+                        onProgress = { progress ->
+                            _progress.value = progress
+                            updateNotification(progress.message)
+                        }
+                    )
+                    _isComplete.value = true
+                    updateNotification("Complete!")
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    _error.value = e.message ?: "Unknown error"
+                    updateNotification("Error: ${e.message}")
+                }
+
+                val next = dequeueNext()
+                if (next != null) {
+                    currentParams = next
+                    GenerationParams.current = next
+                } else {
+                    _isRunning.value = false
+                    delay(2000)
+                    break
+                }
             }
+            stopSelf()
         }
 
         return START_NOT_STICKY

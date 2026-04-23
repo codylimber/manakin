@@ -128,8 +128,18 @@ fun SpeciesListScreen(
             }
             state.species.forEachIndexed { index, item ->
                 state.taxonomyHeaders[index]?.let { header ->
-                    item { Text(header, color = Primary, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = if (index > 0) 8.dp else 0.dp, bottom = 2.dp)) }
+                    item {
+                        val parts = header.split("\n")
+                        Column(modifier = Modifier.padding(top = if (index > 0) 8.dp else 0.dp, bottom = 2.dp)) {
+                            if (parts.size > 1) {
+                                Text(parts[0], color = Primary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(parts[1], color = Primary.copy(alpha = 0.7f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(start = 8.dp, top = 2.dp))
+                            } else {
+                                Text(header, color = Primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
                 item(key = item.species.taxonId) {
                     val photoUri = item.species.photos.firstOrNull()?.let { repository.getPhotoUri(item.sourceKey, it.file) }

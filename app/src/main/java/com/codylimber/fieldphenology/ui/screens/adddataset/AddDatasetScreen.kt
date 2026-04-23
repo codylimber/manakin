@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.adddataset
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,11 +16,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.codylimber.fieldphenology.data.api.INatApiClient
+import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.navigation.GenerationParams
 import com.codylimber.fieldphenology.ui.theme.Primary
 
@@ -28,9 +32,20 @@ fun AddDatasetScreen(
     apiClient: INatApiClient,
     onBack: () -> Unit,
     onGenerate: () -> Unit,
+    repository: PhenologyRepository? = null,
     viewModel: AddDatasetViewModel = viewModel { AddDatasetViewModel(apiClient) }
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    var importSuccess by remember { mutableStateOf<Boolean?>(null) }
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let {
+            context.contentResolver.openInputStream(it)?.let { stream ->
+                importSuccess = repository?.importDataset(stream) == true
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -256,6 +271,33 @@ fun AddDatasetScreen(
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
                         modifier = Modifier.width(120.dp)
                     )
+
+                    // Import dataset
+                    if (repository != null) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        Text("Import Dataset", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Import a .manakin file shared by another user.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                        OutlinedButton(
+                            onClick = { importLauncher.launch(arrayOf("*/*")) },
+                            shape = RoundedCornerShape(8.dp)
+                        ) { Text("Choose File", color = Primary, fontSize = 13.sp) }
+
+                        importSuccess?.let { success ->
+                            Text(
+                                if (success) "Dataset imported successfully!" else "Import failed. Check the file format.",
+                                color = if (success) Primary else MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp
+                            )
+                            if (success) {
+                                LaunchedEffect(Unit) { onBack() }
+                            }
+                        }
+                    }
                 }
             }
 

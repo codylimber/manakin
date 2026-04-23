@@ -106,6 +106,12 @@ class PhenologyRepository(private val context: Context) {
 
     fun getPlaceNameForKey(key: String): String = datasets[key]?.metadata?.placeName ?: ""
 
+    fun getTaxonGroup(key: String): String {
+        val meta = datasets[key]?.metadata ?: return ""
+        return if (meta.taxonIds.isNotEmpty()) meta.taxonIds.sorted().joinToString(",")
+        else meta.taxonName
+    }
+
     fun getSpeciesForKey(key: String): List<Species> = datasets[key]?.species ?: emptyList()
 
     fun getSpeciesById(taxonId: Int): Species? =

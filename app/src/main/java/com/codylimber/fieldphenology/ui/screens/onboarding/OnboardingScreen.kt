@@ -56,7 +56,7 @@ private val pages = listOf(
 )
 
 @Composable
-fun OnboardingScreen(onComplete: () -> Unit) {
+fun OnboardingScreen(onComplete: () -> Unit, isReplay: Boolean = false) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val coroutineScope = rememberCoroutineScope()
 
@@ -140,7 +140,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 colors = ButtonDefaults.buttonColors(containerColor = Primary),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
-                Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (isReplay) "Done" else "Get Started", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
         } else {
             Row(
@@ -148,7 +148,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(onClick = onComplete) {
-                    Text("Skip", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (isReplay) "Close" else "Skip", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Button(
                     onClick = {

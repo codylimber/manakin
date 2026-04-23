@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.data.api.LifeListService
@@ -40,6 +41,7 @@ import com.codylimber.fieldphenology.ui.screens.adddataset.AddDatasetScreen
 import com.codylimber.fieldphenology.ui.screens.compare.CompareScreen
 import com.codylimber.fieldphenology.ui.screens.generating.GeneratingScreen
 import com.codylimber.fieldphenology.ui.screens.help.HelpScreen
+import com.codylimber.fieldphenology.ui.screens.onboarding.OnboardingScreen
 import com.codylimber.fieldphenology.ui.screens.managedatasets.ManageDatasetsScreen
 import com.codylimber.fieldphenology.ui.screens.timeline.TimelineScreen
 import com.codylimber.fieldphenology.ui.screens.tripreport.TripReportScreen
@@ -83,6 +85,7 @@ fun MainScreen(
 
     val isGenerating by GenerationService.isRunning.collectAsState()
     val generationComplete by GenerationService.isComplete.collectAsState()
+    val queueSize by GenerationService.queueSize.collectAsState()
 
     // Reload datasets when background generation completes
     LaunchedEffect(generationComplete) {
@@ -116,7 +119,11 @@ fun MainScreen(
                                     color = Primary
                                 )
                                 Text(
-                                    "Generating dataset… Tap to view progress",
+                                    buildString {
+                                        append("Generating dataset")
+                                        if (queueSize > 0) append(" (+$queueSize queued)")
+                                        append("… Tap to view")
+                                    },
                                     color = Primary,
                                     fontSize = 13.sp
                                 )
@@ -150,6 +157,7 @@ fun MainScreen(
             }
         }
     ) { padding ->
+        val bottomBarHeight = padding.calculateBottomPadding()
         NavHost(
             navController = navController,
             startDestination = Routes.SPECIES_LIST,
@@ -181,24 +189,30 @@ fun MainScreen(
             }
             composable(Routes.MANAGE_DATASETS) {
                 val mc = menuNavCallbacks(navController)
+                val dsContext = LocalContext.current
                 ManageDatasetsScreen(
                     repository = repository,
+                    bottomBarHeight = bottomBarHeight,
                     onAddDataset = { navController.navigate(Routes.ADD_DATASET) },
                     onUpdateDataset = { meta ->
                         val tIds: List<Int?> = if (meta.taxonIds.isEmpty()) listOf(null) else meta.taxonIds.map { it }
                         val pIds = if (meta.placeIds.isNotEmpty()) meta.placeIds else listOf(meta.placeId)
-                        com.codylimber.fieldphenology.ui.navigation.GenerationParams.current =
-                            com.codylimber.fieldphenology.ui.navigation.GenerationParams(
-                                placeIds = pIds,
-                                placeName = meta.placeName,
-                                taxonIds = tIds,
-                                taxonName = meta.taxonName,
-                                groupName = meta.group,
-                                minObs = meta.minObs,
-                                qualityGrade = meta.qualityGrade,
-                                maxPhotos = meta.maxPhotos
-                            )
-                        navController.navigate(Routes.GENERATING)
+                        val updateParams = GenerationParams(
+                            placeIds = pIds,
+                            placeName = meta.placeName,
+                            taxonIds = tIds,
+                            taxonName = meta.taxonName,
+                            groupName = meta.group,
+                            minObs = meta.minObs,
+                            qualityGrade = meta.qualityGrade,
+                            maxPhotos = meta.maxPhotos
+                        )
+                        if (GenerationService.isRunning.value) {
+                            GenerationService.enqueue(dsContext, updateParams)
+                        } else {
+                            GenerationParams.current = updateParams
+                            navController.navigate(Routes.GENERATING)
+                        }
                     },
                     onTimeline = mc.onTimeline, onTripReport = mc.onTripReport,
                     onCompare = mc.onCompare, onHelp = mc.onHelp, onAbout = mc.onAbout
@@ -228,12 +242,21 @@ fun MainScreen(
                 )
             }
             composable(Routes.ADD_DATASET) {
+                val addContext = LocalContext.current
                 AddDatasetScreen(
                     apiClient = apiClient,
+                    repository = repository,
                     onBack = { navController.popBackStack() },
                     onGenerate = {
-                        navController.navigate(Routes.GENERATING) {
-                            popUpTo(Routes.ADD_DATASET) { inclusive = true }
+                        val params = GenerationParams.current
+                        if (params != null && GenerationService.isRunning.value) {
+                            GenerationService.enqueue(addContext, params)
+                            GenerationParams.current = null
+                            navController.popBackStack(Routes.MANAGE_DATASETS, inclusive = false)
+                        } else {
+                            navController.navigate(Routes.GENERATING) {
+                                popUpTo(Routes.ADD_DATASET) { inclusive = true }
+                            }
                         }
                     }
                 )
@@ -268,7 +291,16 @@ fun MainScreen(
                 )
             }
             composable(Routes.HELP) {
-                HelpScreen(onBack = { navController.popBackStack() })
+                HelpScreen(
+                    onBack = { navController.popBackStack() },
+                    onReplayTutorial = { navController.navigate(Routes.ONBOARDING) }
+                )
+            }
+            composable(Routes.ONBOARDING) {
+                OnboardingScreen(
+                    onComplete = { navController.popBackStack() },
+                    isReplay = true
+                )
             }
             composable(Routes.ABOUT) {
                 AboutScreen(onBack = { navController.popBackStack() })
