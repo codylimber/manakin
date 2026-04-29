@@ -107,7 +107,6 @@ class SpeciesListViewModel(
     }
 
     fun refresh() {
-        Log.d("SpeciesListVM", "refresh() called")
         repository.reloadDatasets()
         val datasets = buildDatasetOptions()
         val currentKeys = AppSettings.selectedDatasetKeys
