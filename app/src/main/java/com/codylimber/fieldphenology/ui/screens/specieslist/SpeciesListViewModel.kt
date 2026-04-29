@@ -1,6 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.specieslist
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.codylimber.fieldphenology.data.api.LifeListService
 import com.codylimber.fieldphenology.data.model.ObservationFilter
 import com.codylimber.fieldphenology.data.model.SortMode
@@ -8,8 +9,13 @@ import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.data.model.Species
 import com.codylimber.fieldphenology.data.model.SpeciesStatus
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.temporal.IsoFields
 
@@ -47,7 +53,8 @@ data class SpeciesListState(
     val observationFilter: ObservationFilter = ObservationFilter.ALL,
     val observedCount: Int = 0,
     val hasLifeList: Boolean = false,
-    val taxonomyHeaders: Map<Int, String> = emptyMap() // index in species list -> header text
+    val taxonomyHeaders: Map<Int, String> = emptyMap(),
+    val isLoading: Boolean = false
 )
 
 data class SpeciesWithStatus(
@@ -65,6 +72,12 @@ class SpeciesListViewModel(
 
     private val _state = MutableStateFlow(SpeciesListState())
     val state: StateFlow<SpeciesListState> = _state
+    private var updateJob: Job? = null
+    private var searchDebounceJob: Job? = null
+
+    companion object {
+        private const val SEARCH_DEBOUNCE_MS = 250L
+    }
 
     init {
         val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
@@ -88,7 +101,7 @@ class SpeciesListViewModel(
 
         if (firstKey.isNotEmpty()) {
             loadObservedSpecies()
-            updateSpeciesList()
+            scheduleUpdate()
         }
     }
 
@@ -105,7 +118,7 @@ class SpeciesListViewModel(
             displayLabel = buildDisplayLabel(selected, datasets)
         )
         loadObservedSpecies()
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun toggleDataset(key: String) {
@@ -121,7 +134,7 @@ class SpeciesListViewModel(
             displayLabel = buildDisplayLabel(current, _state.value.datasets)
         )
         loadObservedSpecies()
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun selectAllDatasets() {
@@ -132,7 +145,7 @@ class SpeciesListViewModel(
             displayLabel = buildDisplayLabel(allKeys, _state.value.datasets)
         )
         loadObservedSpecies()
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun selectSingleDataset(key: String) {
@@ -142,28 +155,33 @@ class SpeciesListViewModel(
             displayLabel = buildDisplayLabel(setOf(key), _state.value.datasets)
         )
         loadObservedSpecies()
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun setSortMode(mode: SortMode) {
         _state.value = _state.value.copy(sortMode = mode)
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun setShowAllSpecies(showAll: Boolean) {
         AppSettings.showActiveOnly = !showAll
         _state.value = _state.value.copy(showAllSpecies = showAll)
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun setSearchQuery(query: String) {
         _state.value = _state.value.copy(searchQuery = query)
-        updateSpeciesList()
+        // Debounce search to avoid recomputing on every keystroke
+        searchDebounceJob?.cancel()
+        searchDebounceJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            updateSpeciesList()
+        }
     }
 
     fun toggleSearchAllDatasets() {
         _state.value = _state.value.copy(searchAllDatasets = !_state.value.searchAllDatasets)
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun setDate(date: LocalDate) {
@@ -177,7 +195,7 @@ class SpeciesListViewModel(
             isCustomDate = isCustom,
             isRangeMode = false
         )
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun setDateRange(start: LocalDate, end: LocalDate) {
@@ -191,7 +209,7 @@ class SpeciesListViewModel(
             isCustomDate = true,
             isRangeMode = true
         )
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun resetToToday() {
@@ -200,7 +218,7 @@ class SpeciesListViewModel(
 
     fun setObservationFilter(filter: ObservationFilter) {
         _state.value = _state.value.copy(observationFilter = filter)
-        updateSpeciesList()
+        scheduleUpdate()
     }
 
     fun getOrganismOfTheDay(): OrganismOfTheDay? {
@@ -259,100 +277,112 @@ class SpeciesListViewModel(
         }
     }
 
-    private fun updateSpeciesList() {
+    private fun scheduleUpdate() {
+        updateJob?.cancel()
+        updateJob = viewModelScope.launch {
+            updateSpeciesList()
+        }
+    }
+
+    private suspend fun updateSpeciesList() {
         val st = _state.value
-        val week = st.currentWeek
-        val weekRange = if (st.isRangeMode && st.endWeek != null) {
-            if (st.currentWeek <= st.endWeek) (st.currentWeek..st.endWeek).toSet()
-            else (st.currentWeek..53).toSet() + (1..st.endWeek).toSet()
-        } else setOf(week)
 
-        // Merge species from selected (or all) datasets, dedup by taxonId
-        val keysToSearch = if (st.searchQuery.isNotBlank())
-            repository.getKeys() else st.selectedKeys.toList()
-        val seen = mutableSetOf<Int>()
-        val allWithStatus = mutableListOf<SpeciesWithStatus>()
-        for (key in keysToSearch) {
-            for (sp in repository.getSpeciesForKey(key)) {
-                if (sp.taxonId in seen) continue
-                seen.add(sp.taxonId)
-                // For ranges, use max abundance across the range
-                val abundance = if (st.isRangeMode) {
-                    sp.weekly.filter { it.week in weekRange }.maxOfOrNull { it.relAbundance } ?: 0f
-                } else {
-                    sp.weekly.find { it.week == week }?.relAbundance ?: 0f
+        val result = withContext(Dispatchers.Default) {
+            val week = st.currentWeek
+            val weekRange = if (st.isRangeMode && st.endWeek != null) {
+                if (st.currentWeek <= st.endWeek) (st.currentWeek..st.endWeek).toSet()
+                else (st.currentWeek..53).toSet() + (1..st.endWeek).toSet()
+            } else setOf(week)
+
+            // Merge species from selected (or all) datasets, dedup by taxonId
+            val keysToSearch = if (st.searchQuery.isNotBlank())
+                repository.getKeys() else st.selectedKeys.toList()
+            val seen = mutableSetOf<Int>()
+            val allWithStatus = mutableListOf<SpeciesWithStatus>()
+            for (key in keysToSearch) {
+                for (sp in repository.getSpeciesForKey(key)) {
+                    if (sp.taxonId in seen) continue
+                    seen.add(sp.taxonId)
+                    // For ranges, use max abundance across the range
+                    val abundance = if (st.isRangeMode) {
+                        sp.weekly.filter { it.week in weekRange }.maxOfOrNull { it.relAbundance } ?: 0f
+                    } else {
+                        sp.weekly.find { it.week == week }?.relAbundance ?: 0f
+                    }
+                    val status = if (st.isRangeMode) {
+                        // Classify based on best week in range
+                        when {
+                            abundance >= 0.8f -> SpeciesStatus.PEAK
+                            abundance >= 0.2f -> SpeciesStatus.ACTIVE
+                            abundance > 0f -> SpeciesStatus.EARLY
+                            else -> SpeciesStatus.INACTIVE
+                        }
+                    } else SpeciesStatus.classify(sp, week)
+                    val isObserved = sp.taxonId in st.observedIds
+                    allWithStatus.add(SpeciesWithStatus(sp, status, abundance, isObserved, key))
                 }
-                val status = if (st.isRangeMode) {
-                    // Classify based on best week in range
-                    when {
-                        abundance >= 0.8f -> SpeciesStatus.PEAK
-                        abundance >= 0.2f -> SpeciesStatus.ACTIVE
-                        abundance > 0f -> SpeciesStatus.EARLY
-                        else -> SpeciesStatus.INACTIVE
-                    }
-                } else SpeciesStatus.classify(sp, week)
-                val isObserved = sp.taxonId in st.observedIds
-                allWithStatus.add(SpeciesWithStatus(sp, status, abundance, isObserved, key))
             }
-        }
 
-        val activeCount = allWithStatus.count { it.status != SpeciesStatus.INACTIVE }
-        val observedCount = allWithStatus.count { it.isObserved }
+            val activeCount = allWithStatus.count { it.status != SpeciesStatus.INACTIVE }
+            val observedCount = allWithStatus.count { it.isObserved }
 
-        var filtered = if (st.showAllSpecies) allWithStatus
-            else allWithStatus.filter { it.status != SpeciesStatus.INACTIVE }
+            var filtered = if (st.showAllSpecies) allWithStatus
+                else allWithStatus.filter { it.status != SpeciesStatus.INACTIVE }
 
-        // Min activity threshold
-        val minThreshold = AppSettings.minActivityPercent / 100f
-        if (minThreshold > 0f) {
-            filtered = filtered.filter { it.currentAbundance >= minThreshold || it.status == SpeciesStatus.INACTIVE }
-        }
-
-        filtered = when (st.observationFilter) {
-            ObservationFilter.ALL -> filtered
-            ObservationFilter.OBSERVED -> filtered.filter { it.isObserved }
-            ObservationFilter.NOT_OBSERVED -> filtered.filter { !it.isObserved }
-            ObservationFilter.FAVORITES -> filtered.filter { AppSettings.isFavorite(it.species.taxonId) }
-        }
-
-        if (st.searchQuery.isNotBlank()) {
-            val query = st.searchQuery.lowercase()
-            filtered = filtered.filter { item ->
-                item.species.commonName.lowercase().contains(query) ||
-                item.species.scientificName.lowercase().contains(query)
+            // Min activity threshold
+            val minThreshold = AppSettings.minActivityPercent / 100f
+            if (minThreshold > 0f) {
+                filtered = filtered.filter { it.currentAbundance >= minThreshold || it.status == SpeciesStatus.INACTIVE }
             }
-        }
 
-        val sorted = when (st.sortMode) {
-            SortMode.LIKELIHOOD -> filtered.sortedWith(
-                compareBy<SpeciesWithStatus> { statusPriority(it.status) }
-                    .thenByDescending {
-                        // Weighted score: activity * log(observations)
-                        val logObs = if (it.species.totalObs > 0) kotlin.math.ln(it.species.totalObs.toDouble()) else 0.0
-                        it.currentAbundance * logObs
-                    }
-            )
-            SortMode.PEAK_DATE -> filtered.sortedBy { it.species.peakWeek }
-            SortMode.NAME -> filtered.sortedBy {
-                it.species.commonName.ifEmpty { it.species.scientificName }.lowercase()
+            filtered = when (st.observationFilter) {
+                ObservationFilter.ALL -> filtered
+                ObservationFilter.OBSERVED -> filtered.filter { it.isObserved }
+                ObservationFilter.NOT_OBSERVED -> filtered.filter { !it.isObserved }
+                ObservationFilter.FAVORITES -> filtered.filter { AppSettings.isFavorite(it.species.taxonId) }
             }
-            SortMode.TAXONOMY -> filtered.sortedWith(
-                compareBy<SpeciesWithStatus> { it.species.order ?: "" }
-                    .thenBy { it.species.family ?: "" }
-                    .thenBy { it.species.scientificName }
-            )
+
+            if (st.searchQuery.isNotBlank()) {
+                val query = st.searchQuery.lowercase()
+                filtered = filtered.filter { item ->
+                    item.species.commonName.lowercase().contains(query) ||
+                    item.species.scientificName.lowercase().contains(query)
+                }
+            }
+
+            val sorted = when (st.sortMode) {
+                SortMode.LIKELIHOOD -> filtered.sortedWith(
+                    compareBy<SpeciesWithStatus> { statusPriority(it.status) }
+                        .thenByDescending {
+                            val logObs = if (it.species.totalObs > 0) kotlin.math.ln(it.species.totalObs.toDouble()) else 0.0
+                            it.currentAbundance * logObs
+                        }
+                )
+                SortMode.PEAK_DATE -> filtered.sortedBy { it.species.peakWeek }
+                SortMode.NAME -> filtered.sortedBy {
+                    it.species.commonName.ifEmpty { it.species.scientificName }.lowercase()
+                }
+                SortMode.TAXONOMY -> filtered.sortedWith(
+                    compareBy<SpeciesWithStatus> { it.species.order ?: "" }
+                        .thenBy { it.species.family ?: "" }
+                        .thenBy { it.species.scientificName }
+                )
+            }
+
+            // Build taxonomy headers when sorted by taxonomy
+            val headers = if (st.sortMode == SortMode.TAXONOMY) {
+                buildTaxonomyHeaders(sorted)
+            } else emptyMap()
+
+            Triple(sorted, headers, Triple(activeCount, allWithStatus.size, observedCount))
         }
 
-        // Build taxonomy headers when sorted by taxonomy
-        val headers = if (st.sortMode == SortMode.TAXONOMY) {
-            buildTaxonomyHeaders(sorted)
-        } else emptyMap()
-
+        val (sorted, headers, counts) = result
         _state.value = st.copy(
             species = sorted,
-            activeCount = activeCount,
-            totalCount = allWithStatus.size,
-            observedCount = observedCount,
+            activeCount = counts.first,
+            totalCount = counts.second,
+            observedCount = counts.third,
             taxonomyHeaders = headers
         )
     }

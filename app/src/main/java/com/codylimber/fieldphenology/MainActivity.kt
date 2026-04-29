@@ -5,7 +5,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.codylimber.fieldphenology.data.api.INatApiClient
@@ -17,6 +22,7 @@ import com.codylimber.fieldphenology.ui.screens.main.MainScreen
 import com.codylimber.fieldphenology.ui.screens.onboarding.OnboardingScreen
 import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.ui.theme.FieldPhenologyTheme
+import com.codylimber.fieldphenology.ui.theme.Primary
 import com.codylimber.fieldphenology.ui.theme.ThemeState
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -54,8 +60,6 @@ class MainActivity : ComponentActivity() {
         val widgetDeepLink = intent?.getStringExtra("deeplink_route")
 
         val repository = PhenologyRepository(applicationContext)
-        repository.loadDatasets()
-
         val apiClient = INatApiClient(sharedHttpClient)
         val generator = DatasetGenerator(apiClient, applicationContext)
         val lifeListService = LifeListService(apiClient, applicationContext)
@@ -73,7 +77,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             FieldPhenologyTheme {
-                if (!hasCompletedOnboarding) {
+                var isLoaded by remember { mutableStateOf(false) }
+
+                LaunchedEffect(Unit) {
+                    repository.loadDatasetsAsync()
+                    isLoaded = true
+                }
+
+                if (!isLoaded) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Primary)
+                    }
+                } else if (!hasCompletedOnboarding) {
                     var showOnboarding by remember { mutableStateOf(true) }
                     if (showOnboarding) {
                         OnboardingScreen(onComplete = {

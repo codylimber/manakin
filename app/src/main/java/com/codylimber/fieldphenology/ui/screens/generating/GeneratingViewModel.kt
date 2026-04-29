@@ -60,7 +60,7 @@ class GeneratingViewModel(
             launch {
                 GenerationService.isComplete.collect { complete ->
                     if (complete) {
-                        repository.reloadDatasets()
+                        repository.reloadDatasetsAsync()
                         _state.value = _state.value.copy(
                             isComplete = true,
                             completedPhases = GenerationPhase.entries.toSet()

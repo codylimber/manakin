@@ -23,6 +23,9 @@ import com.codylimber.fieldphenology.data.repository.DatasetInfo
 import com.codylimber.fieldphenology.data.repository.DatasetSource
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.theme.Primary
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +44,9 @@ fun ManageDatasetsScreen(
     var datasets by remember { mutableStateOf(repository.getAllDatasets()) }
     var deleteTarget by remember { mutableStateOf<DatasetInfo?>(null) }
     var showBundleExport by remember { mutableStateOf(false) }
+    var isExporting by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // Refresh when returning to this screen
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -146,21 +151,25 @@ fun ManageDatasetsScreen(
                             }
                             if (info.source == DatasetSource.INTERNAL) {
                                 IconButton(onClick = {
-                                    val zipFile = repository.exportDataset(info.key)
-                                    if (zipFile != null) {
-                                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", zipFile)
-                                        val intent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "application/octet-stream"
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            putExtra(Intent.EXTRA_TEXT,
-                                                "${info.group} — ${info.placeName} dataset for Manakin.\n\n" +
-                                                "To import: Open Manakin > Datasets tab > tap + > Advanced Options > Import Dataset, then select this .manakin file."
-                                            )
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    scope.launch {
+                                        isExporting = true
+                                        val zipFile = withContext(Dispatchers.IO) { repository.exportDataset(info.key) }
+                                        isExporting = false
+                                        if (zipFile != null) {
+                                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", zipFile)
+                                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "application/octet-stream"
+                                                putExtra(Intent.EXTRA_STREAM, uri)
+                                                putExtra(Intent.EXTRA_TEXT,
+                                                    "${info.group} — ${info.placeName} dataset for Manakin.\n\n" +
+                                                    "To import: Open Manakin > Datasets tab > tap + > Advanced Options > Import Dataset, then select this .manakin file."
+                                                )
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            }
+                                            context.startActivity(Intent.createChooser(intent, "Share Dataset"))
                                         }
-                                        context.startActivity(Intent.createChooser(intent, "Share Dataset"))
                                     }
-                                }) {
+                                }, enabled = !isExporting) {
                                     Icon(Icons.Default.Share, "Share", tint = Primary)
                                 }
                             }
@@ -218,24 +227,28 @@ fun ManageDatasetsScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            val zipFile = repository.exportBundle(selectedKeys.toList(), bundleName)
-                            if (zipFile != null) {
-                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", zipFile)
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "application/octet-stream"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    putExtra(Intent.EXTRA_TEXT,
-                                        "Manakin dataset bundle: ${selectedKeys.size} datasets.\n\n" +
-                                        "To import: Open Manakin > Datasets tab > tap + > Advanced Options > Import Dataset, then select this file."
-                                    )
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            scope.launch {
+                                isExporting = true
+                                val zipFile = withContext(Dispatchers.IO) { repository.exportBundle(selectedKeys.toList(), bundleName) }
+                                isExporting = false
+                                if (zipFile != null) {
+                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", zipFile)
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/octet-stream"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        putExtra(Intent.EXTRA_TEXT,
+                                            "Manakin dataset bundle: ${selectedKeys.size} datasets.\n\n" +
+                                            "To import: Open Manakin > Datasets tab > tap + > Advanced Options > Import Dataset, then select this file."
+                                        )
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "Share Bundle"))
                                 }
-                                context.startActivity(Intent.createChooser(intent, "Share Bundle"))
+                                showBundleExport = false
                             }
-                            showBundleExport = false
                         },
-                        enabled = selectedKeys.isNotEmpty()
-                    ) { Text("Export", color = Primary) }
+                        enabled = selectedKeys.isNotEmpty() && !isExporting
+                    ) { Text(if (isExporting) "Exporting..." else "Export", color = Primary) }
                 },
                 dismissButton = {
                     TextButton(onClick = { showBundleExport = false }) { Text("Cancel") }

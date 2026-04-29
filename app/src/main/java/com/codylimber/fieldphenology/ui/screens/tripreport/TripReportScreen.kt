@@ -29,6 +29,9 @@ import com.codylimber.fieldphenology.ui.theme.Primary
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -50,6 +53,7 @@ fun TripReportScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val today = LocalDate.now()
     var startDate by remember { mutableStateOf(today.minusDays(7)) }
     var endDate by remember { mutableStateOf(today) }
@@ -65,7 +69,10 @@ fun TripReportScreen(
 
     // Saved trips
     val tripsDir = remember { File(context.filesDir, "trips").also { it.mkdirs() } }
-    var savedTrips by remember { mutableStateOf(loadTrips(tripsDir)) }
+    var savedTrips by remember { mutableStateOf<List<Pair<File, SavedTrip>>>(emptyList()) }
+    LaunchedEffect(tripsDir) {
+        savedTrips = withContext(Dispatchers.IO) { loadTrips(tripsDir) }
+    }
     var showSavedTrips by remember { mutableStateOf(false) }
     val json = remember { Json { ignoreUnknownKeys = true } }
 
@@ -187,8 +194,12 @@ fun TripReportScreen(
                         if (tripName.isNotBlank()) {
                             val trip = SavedTrip(tripName, startDate.toString(), endDate.toString(),
                                 tripDatasetKeys.toList(), checkedSpecies.filter { it.value }.keys.toList())
-                            File(tripsDir, "${tripName.replace(Regex("[^a-zA-Z0-9]"), "_")}.json").writeText(json.encodeToString(trip))
-                            savedTrips = loadTrips(tripsDir)
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    File(tripsDir, "${tripName.replace(Regex("[^a-zA-Z0-9]"), "_")}.json").writeText(json.encodeToString(trip))
+                                }
+                                savedTrips = withContext(Dispatchers.IO) { loadTrips(tripsDir) }
+                            }
                         }
                     }, shape = RoundedCornerShape(8.dp)) { Text("Save", fontSize = 13.sp, color = Primary) }
                     OutlinedButton(onClick = { showSavedTrips = true }, shape = RoundedCornerShape(8.dp)) { Text("Load", fontSize = 13.sp, color = Primary) }
@@ -308,7 +319,7 @@ fun TripReportScreen(
                                         Text(trip.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                                         Text("${trip.startDate} — ${trip.endDate}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    IconButton(onClick = { file.delete(); savedTrips = loadTrips(tripsDir) }) {
+                                    IconButton(onClick = { scope.launch { withContext(Dispatchers.IO) { file.delete() }; savedTrips = withContext(Dispatchers.IO) { loadTrips(tripsDir) } } }) {
                                         Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                     }
                                 }

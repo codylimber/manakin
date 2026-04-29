@@ -5,6 +5,8 @@ import android.util.Log
 import com.codylimber.fieldphenology.data.model.Dataset
 import com.codylimber.fieldphenology.data.model.Species
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 enum class DatasetSource { ASSET, INTERNAL }
@@ -97,6 +99,14 @@ class PhenologyRepository(private val context: Context) {
     fun reloadDatasets() {
         loaded = false
         loadDatasets()
+    }
+
+    suspend fun loadDatasetsAsync() = withContext(Dispatchers.IO) {
+        loadDatasets()
+    }
+
+    suspend fun reloadDatasetsAsync() = withContext(Dispatchers.IO) {
+        reloadDatasets()
     }
 
     fun getKeys(): List<String> = datasets.keys.sorted()
