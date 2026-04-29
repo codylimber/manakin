@@ -69,10 +69,14 @@ fun TripReportScreen(
     var showSavedTrips by remember { mutableStateOf(false) }
     val json = remember { Json { ignoreUnknownKeys = true } }
 
+    // Auto-swap if start is after end
+    val effectiveStart = if (startDate.isAfter(endDate)) endDate else startDate
+    val effectiveEnd = if (startDate.isAfter(endDate)) startDate else endDate
+
     // Get species active during the date range
-    val startWeek = startDate.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
-    val endWeek = endDate.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
-    val weekRange = if (startWeek <= endWeek) startWeek..endWeek else startWeek..53
+    val startWeek = effectiveStart.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+    val endWeek = effectiveEnd.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+    val weekRange = if (startWeek <= endWeek) (startWeek..endWeek).toSet() else (startWeek..53).toSet() + (1..endWeek).toSet()
 
     val activeSpecies = remember(tripDatasetKeys, startWeek, endWeek) {
         val seen = mutableSetOf<Int>()
@@ -242,10 +246,13 @@ fun TripReportScreen(
                             colors = CheckboxDefaults.colors(checkedColor = Primary))
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(sp.commonName.ifEmpty { sp.scientificName }, fontSize = 15.sp,
+                            val useSci = AppSettings.useScientificNames
+                            val primaryName = if (useSci) sp.scientificName else sp.commonName.ifEmpty { sp.scientificName }
+                            Text(primaryName, fontSize = 15.sp,
                                 fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                             if (sp.commonName.isNotEmpty()) {
-                                Text(sp.scientificName, fontSize = 12.sp, fontStyle = FontStyle.Italic,
+                                val secondaryName = if (useSci) sp.commonName else sp.scientificName
+                                Text(secondaryName, fontSize = 12.sp, fontStyle = if (!useSci) FontStyle.Italic else FontStyle.Normal,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }

@@ -164,8 +164,8 @@ fun SpeciesListScreen(
                 text = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         ootd.photoUri?.let { AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(it).build(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp))); Spacer(modifier = Modifier.height(12.dp)) }
-                        Text(ootd.species.commonName.ifEmpty { ootd.species.scientificName }, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        if (ootd.species.commonName.isNotEmpty()) Text(ootd.species.scientificName, fontSize = 14.sp, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (AppSettings.useScientificNames) ootd.species.scientificName else ootd.species.commonName.ifEmpty { ootd.species.scientificName }, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        if (ootd.species.commonName.isNotEmpty()) Text(if (AppSettings.useScientificNames) ootd.species.commonName else ootd.species.scientificName, fontSize = 14.sp, fontStyle = if (!AppSettings.useScientificNames) FontStyle.Italic else FontStyle.Normal, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(ootd.key, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

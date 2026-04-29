@@ -263,9 +263,9 @@ class SpeciesListViewModel(
         val st = _state.value
         val week = st.currentWeek
         val weekRange = if (st.isRangeMode && st.endWeek != null) {
-            if (st.currentWeek <= st.endWeek) st.currentWeek..st.endWeek
-            else st.currentWeek..53 // handle year wrap simply
-        } else week..week
+            if (st.currentWeek <= st.endWeek) (st.currentWeek..st.endWeek).toSet()
+            else (st.currentWeek..53).toSet() + (1..st.endWeek).toSet()
+        } else setOf(week)
 
         // Merge species from selected (or all) datasets, dedup by taxonId
         val keysToSearch = if (st.searchQuery.isNotBlank())

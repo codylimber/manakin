@@ -2,10 +2,13 @@ package com.codylimber.fieldphenology.data.api
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.net.URLEncoder
 import java.security.MessageDigest
 
 class INatApiClient(private val client: OkHttpClient) {
@@ -19,16 +22,20 @@ class INatApiClient(private val client: OkHttpClient) {
     }
 
     private val json = Json { ignoreUnknownKeys = true }
+    private val throttleMutex = Mutex()
     private var lastRequestTime = 0L
-    private val cache = mutableMapOf<String, JsonObject>()
+    private val cache = LinkedHashMap<String, JsonObject>(128, 0.75f, true) // LRU access order
+    private val MAX_CACHE_SIZE = 500
 
     private suspend fun throttle(intervalMs: Long) {
-        val now = System.currentTimeMillis()
-        val elapsed = now - lastRequestTime
-        if (elapsed < intervalMs) {
-            delay(intervalMs - elapsed)
+        throttleMutex.withLock {
+            val now = System.currentTimeMillis()
+            val elapsed = now - lastRequestTime
+            if (elapsed < intervalMs) {
+                delay(intervalMs - elapsed)
+            }
+            lastRequestTime = System.currentTimeMillis()
         }
-        lastRequestTime = System.currentTimeMillis()
     }
 
     private fun cacheKey(endpoint: String, params: Map<String, String>): String {
@@ -50,7 +57,7 @@ class INatApiClient(private val client: OkHttpClient) {
         val urlBuilder = StringBuilder("$BASE_URL/$endpoint")
         if (params.isNotEmpty()) {
             urlBuilder.append("?")
-            urlBuilder.append(params.entries.joinToString("&") { "${it.key}=${it.value}" })
+            urlBuilder.append(params.entries.joinToString("&") { "${URLEncoder.encode(it.key, "UTF-8")}=${URLEncoder.encode(it.value, "UTF-8")}" })
         }
         val url = urlBuilder.toString()
 
@@ -84,6 +91,9 @@ class INatApiClient(private val client: OkHttpClient) {
                 val result = json.parseToJsonElement(body).jsonObject
                 if (useCache) {
                     cache[cacheKey(endpoint, params)] = result
+                    while (cache.size > MAX_CACHE_SIZE) {
+                        cache.remove(cache.keys.first())
+                    }
                 }
                 return result
             } catch (e: kotlinx.coroutines.CancellationException) {

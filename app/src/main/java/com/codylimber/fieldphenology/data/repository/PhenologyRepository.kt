@@ -30,6 +30,7 @@ class PhenologyRepository(private val context: Context) {
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
+        encodeDefaults = true
     }
     // Keyed by "Group — Place" to avoid collisions
     private val datasets = mutableMapOf<String, Dataset>()
@@ -168,7 +169,8 @@ class PhenologyRepository(private val context: Context) {
         }
         if (!sourceDir.isDirectory) return null
 
-        val zipFile = File(context.cacheDir, "$dir.manakin")
+        val exportsDir = File(context.cacheDir, "exports").also { it.mkdirs() }
+        val zipFile = File(exportsDir, "$dir.manakin")
         java.util.zip.ZipOutputStream(zipFile.outputStream()).use { zip ->
             sourceDir.walkTopDown().filter { it.isFile }.forEach { file ->
                 val entryName = file.relativeTo(sourceDir).path
@@ -181,7 +183,8 @@ class PhenologyRepository(private val context: Context) {
     }
 
     fun exportBundle(keys: List<String>, bundleName: String): java.io.File? {
-        val zipFile = File(context.cacheDir, "$bundleName.manakin-bundle")
+        val exportsDir = File(context.cacheDir, "exports").also { it.mkdirs() }
+        val zipFile = File(exportsDir, "$bundleName.manakin-bundle")
         try {
             java.util.zip.ZipOutputStream(zipFile.outputStream()).use { zip ->
                 for (key in keys) {
@@ -217,6 +220,11 @@ class PhenologyRepository(private val context: Context) {
                 var entry = zip.nextEntry
                 while (entry != null) {
                     val outFile = File(tempDir, entry.name)
+                    // Guard against zip slip (path traversal)
+                    if (!outFile.canonicalPath.startsWith(tempDir.canonicalPath + File.separator) &&
+                        outFile.canonicalPath != tempDir.canonicalPath) {
+                        throw SecurityException("Zip entry outside target directory: ${entry.name}")
+                    }
                     outFile.parentFile?.mkdirs()
                     if (!entry.isDirectory) {
                         outFile.outputStream().use { zip.copyTo(it) }
@@ -262,6 +270,7 @@ class PhenologyRepository(private val context: Context) {
         val destDir = File(context.filesDir, "datasets/$slug")
         if (destDir.exists()) destDir.deleteRecursively()
         tempDir.copyRecursively(destDir, overwrite = true)
+        tempDir.deleteRecursively()
         return true
     }
 
@@ -298,7 +307,7 @@ class PhenologyRepository(private val context: Context) {
         val outputDir = File(context.filesDir, "datasets/$slug")
         outputDir.mkdirs()
 
-        val jsonStr = kotlinx.serialization.json.Json { encodeDefaults = true }.encodeToString(com.codylimber.fieldphenology.data.model.Dataset.serializer(), merged)
+        val jsonStr = json.encodeToString(com.codylimber.fieldphenology.data.model.Dataset.serializer(), merged)
         File(outputDir, "dataset.json").writeText(jsonStr)
 
         // Copy photos from source datasets
@@ -307,10 +316,22 @@ class PhenologyRepository(private val context: Context) {
         for (key in getKeys()) {
             val source = keySources[key] ?: continue
             val dir = keyDirNames[key] ?: continue
-            if (source == DatasetSource.INTERNAL) {
-                val srcPhotos = File(context.filesDir, "datasets/$dir/photos")
-                if (srcPhotos.isDirectory) {
-                    srcPhotos.listFiles()?.forEach { it.copyTo(File(photosDir, it.name), overwrite = true) }
+            when (source) {
+                DatasetSource.INTERNAL -> {
+                    val srcPhotos = File(context.filesDir, "datasets/$dir/photos")
+                    if (srcPhotos.isDirectory) {
+                        srcPhotos.listFiles()?.forEach { it.copyTo(File(photosDir, it.name), overwrite = true) }
+                    }
+                }
+                DatasetSource.ASSET -> {
+                    val assetPhotos = try { context.assets.list("datasets/$dir/photos") } catch (_: Exception) { null }
+                    assetPhotos?.forEach { filename ->
+                        try {
+                            context.assets.open("datasets/$dir/photos/$filename").use { input ->
+                                File(photosDir, filename).outputStream().use { output -> input.copyTo(output) }
+                            }
+                        } catch (_: Exception) { /* skip missing photo */ }
+                    }
                 }
             }
         }

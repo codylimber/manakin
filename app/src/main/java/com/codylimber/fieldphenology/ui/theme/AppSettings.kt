@@ -33,6 +33,21 @@ object AppSettings {
         digestHour = prefs.getInt("digest_hour", 8)
         targetNotificationsEnabled = prefs.getBoolean("target_notifications_enabled", false)
         notificationDatasetKeys = prefs.getStringSet("notification_dataset_keys", emptySet()) ?: emptySet()
+        selectedDatasetKeys = prefs.getStringSet("selected_dataset_keys", emptySet()) ?: emptySet()
+        showActiveOnly = prefs.getBoolean("show_active_only", true)
+        targetMode = prefs.getString("target_mode", "STARRED") ?: "STARRED"
+    }
+
+    fun saveSelectedDatasetKeys() {
+        prefs?.edit()?.putStringSet("selected_dataset_keys", selectedDatasetKeys)?.apply()
+    }
+
+    fun saveShowActiveOnly() {
+        prefs?.edit()?.putBoolean("show_active_only", showActiveOnly)?.apply()
+    }
+
+    fun saveTargetMode() {
+        prefs?.edit()?.putString("target_mode", targetMode)?.apply()
     }
 
     fun toggleFavorite(taxonId: Int) {

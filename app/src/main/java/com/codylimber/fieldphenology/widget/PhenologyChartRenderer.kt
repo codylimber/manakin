@@ -2,10 +2,8 @@ package com.codylimber.fieldphenology.widget
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.Shader
 import com.codylimber.fieldphenology.data.model.WeeklyEntry
 
 object PhenologyChartRenderer {

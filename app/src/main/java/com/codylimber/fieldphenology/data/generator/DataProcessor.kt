@@ -93,6 +93,13 @@ object DataProcessor {
                 periods++
             }
         }
+        // Check for year-wrapping: if first and last active weeks connect across the boundary
+        if (periods > 1 && activeWeeks.size >= 2) {
+            val wrapGap = (53 - activeWeeks.last()) + activeWeeks.first()
+            if (wrapGap <= gapWeeks) {
+                periods-- // First and last periods are actually one continuous period
+            }
+        }
         return periods
     }
 }

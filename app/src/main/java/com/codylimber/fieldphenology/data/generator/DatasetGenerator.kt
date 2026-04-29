@@ -233,7 +233,7 @@ class DatasetGenerator(
         val dataset = Dataset(
             metadata = DatasetMetadata(
                 placeName = placeName,
-                placeId = placeIds.first(),
+                placeId = placeIds.firstOrNull() ?: 0,
                 placeIds = placeIds,
                 group = groupName,
                 taxonName = taxonName,

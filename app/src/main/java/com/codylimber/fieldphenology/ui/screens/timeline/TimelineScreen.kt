@@ -233,12 +233,17 @@ private fun EventCard(event: TimelineEvent, repository: PhenologyRepository, onS
                         Icon(Icons.Filled.Star, null, tint = FavoriteGold, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(3.dp))
                     }
-                    Text(sp.commonName.ifEmpty { sp.scientificName },
+                    val useSci = AppSettings.useScientificNames
+                    val primaryName = if (useSci) sp.scientificName else sp.commonName.ifEmpty { sp.scientificName }
+                    val secondaryName = if (useSci) sp.commonName else sp.scientificName
+                    Text(primaryName,
                         fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface)
                 }
                 if (sp.commonName.isNotEmpty()) {
-                    Text(sp.scientificName, fontSize = 12.sp, fontStyle = FontStyle.Italic,
+                    val useSci2 = AppSettings.useScientificNames
+                    val secondaryName = if (useSci2) sp.commonName else sp.scientificName
+                    Text(secondaryName, fontSize = 12.sp, fontStyle = if (!useSci2) FontStyle.Italic else FontStyle.Normal,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

@@ -42,8 +42,30 @@ fun SpeciesDetailScreen(
     lifeListService: LifeListService? = null,
     onBack: () -> Unit
 ) {
-    val species = repository.getSpeciesById(taxonId) ?: return
-    val key = repository.getKeyForSpecies(taxonId) ?: return
+    val species = repository.getSpeciesById(taxonId)
+    val key = repository.getKeyForSpecies(taxonId)
+
+    if (species == null || key == null) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Species Not Found") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Primary)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                )
+            }
+        ) { padding ->
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text("This species is no longer available.\nThe dataset may have been removed.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
+
     val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     val status = SpeciesStatus.classify(species, currentWeek)
     val context = LocalContext.current

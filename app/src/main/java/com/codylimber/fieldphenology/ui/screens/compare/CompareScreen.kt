@@ -38,6 +38,30 @@ fun CompareScreen(
     onSpeciesClick: (Int) -> Unit
 ) {
     val keys = repository.getKeys()
+
+    if (keys.size < 2) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Compare") },
+                    navigationIcon = {
+                        if (onBack != null) {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Primary)
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                )
+            }
+        ) { padding ->
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text("You need at least 2 datasets to compare.\nDownload more from the Datasets tab.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
+
     var keyA by remember { mutableStateOf(keys.getOrNull(0) ?: "") }
     var keyB by remember { mutableStateOf(keys.getOrNull(1) ?: "") }
     var expandedA by remember { mutableStateOf(false) }
@@ -81,12 +105,12 @@ fun CompareScreen(
         }
     }
 
-    val speciesA = repository.getSpeciesForKey(keyA).associateBy { it.taxonId }
-    val speciesB = repository.getSpeciesForKey(keyB).associateBy { it.taxonId }
+    val speciesA = remember(keyA) { repository.getSpeciesForKey(keyA).associateBy { it.taxonId } }
+    val speciesB = remember(keyB) { repository.getSpeciesForKey(keyB).associateBy { it.taxonId } }
 
-    val onlyA = speciesA.filterKeys { it !in speciesB }
-    val onlyB = speciesB.filterKeys { it !in speciesA }
-    val shared = speciesA.filterKeys { it in speciesB }
+    val onlyA = remember(speciesA, speciesB) { speciesA.filterKeys { it !in speciesB } }
+    val onlyB = remember(speciesA, speciesB) { speciesB.filterKeys { it !in speciesA } }
+    val shared = remember(speciesA, speciesB) { speciesA.filterKeys { it in speciesB } }
 
     val nameA = "${repository.getGroupName(keyA)} — ${repository.getPlaceNameForKey(keyA)}"
     val nameB = "${repository.getGroupName(keyB)} — ${repository.getPlaceNameForKey(keyB)}"

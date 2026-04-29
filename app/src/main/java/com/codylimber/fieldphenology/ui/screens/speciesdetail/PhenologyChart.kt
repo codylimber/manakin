@@ -2,6 +2,7 @@ package com.codylimber.fieldphenology.ui.screens.speciesdetail
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -25,6 +26,18 @@ fun PhenologyChart(
     modifier: Modifier = Modifier
 ) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val monthLabelPaint = remember(labelColor) {
+        android.graphics.Paint().apply {
+            color = android.graphics.Color.argb(
+                (labelColor.alpha * 255).toInt(),
+                (labelColor.red * 255).toInt(),
+                (labelColor.green * 255).toInt(),
+                (labelColor.blue * 255).toInt()
+            )
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+        }
+    }
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
@@ -73,24 +86,14 @@ fun PhenologyChart(
         }
 
         // Month labels
-        val paint = android.graphics.Paint().apply {
-            color = android.graphics.Color.argb(
-                (labelColor.alpha * 255).toInt(),
-                (labelColor.red * 255).toInt(),
-                (labelColor.green * 255).toInt(),
-                (labelColor.blue * 255).toInt()
-            )
-            textSize = 10.sp.toPx()
-            textAlign = android.graphics.Paint.Align.CENTER
-            isAntiAlias = true
-        }
+        monthLabelPaint.textSize = 10.sp.toPx()
         for (i in MONTHS.indices) {
             val x = (MONTH_WEEKS[i] - 0.5f) * barWidth
             drawContext.canvas.nativeCanvas.drawText(
                 MONTHS[i],
                 x,
                 h - 2f,
-                paint
+                monthLabelPaint
             )
         }
     }

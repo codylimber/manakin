@@ -1,10 +1,12 @@
 package com.codylimber.fieldphenology
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.data.api.LifeListService
@@ -20,6 +22,31 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
+
+    private var navController: NavHostController? = null
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra("deeplink_route")?.let { route ->
+            navController?.navigate(route)
+        }
+    }
+
+    companion object {
+        val sharedHttpClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor { chain ->
+                    val request = chain.request().newBuilder()
+                        .header("User-Agent", "Manakin/${BuildConfig.VERSION_NAME} (Android; github.com/codylimber/manakin)")
+                        .build()
+                    chain.proceed(request)
+                }
+                .build()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -29,18 +56,7 @@ class MainActivity : ComponentActivity() {
         val repository = PhenologyRepository(applicationContext)
         repository.loadDatasets()
 
-        val okHttpClient = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .header("User-Agent", "Manakin/1.2 (Android; github.com/codylimber/manakin)")
-                    .build()
-                chain.proceed(request)
-            }
-            .build()
-
-        val apiClient = INatApiClient(okHttpClient)
+        val apiClient = INatApiClient(sharedHttpClient)
         val generator = DatasetGenerator(apiClient, applicationContext)
         val lifeListService = LifeListService(apiClient, applicationContext)
 
@@ -65,12 +81,12 @@ class MainActivity : ComponentActivity() {
                             showOnboarding = false
                         })
                     } else {
-                        val navController = rememberNavController()
-                        MainScreen(navController, repository, apiClient, generator, lifeListService, initialRoute = widgetDeepLink)
+                        val nav = rememberNavController().also { navController = it }
+                        MainScreen(nav, repository, apiClient, generator, lifeListService, initialRoute = widgetDeepLink)
                     }
                 } else {
-                    val navController = rememberNavController()
-                    MainScreen(navController, repository, apiClient, generator, lifeListService, initialRoute = widgetDeepLink)
+                    val nav = rememberNavController().also { navController = it }
+                    MainScreen(nav, repository, apiClient, generator, lifeListService, initialRoute = widgetDeepLink)
                 }
             }
         }

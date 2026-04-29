@@ -70,8 +70,12 @@ enum class SpeciesStatus {
             return when {
                 entry.relAbundance >= 0.8f -> PEAK
                 entry.relAbundance >= 0.2f -> ACTIVE
-                currentWeek < species.peakWeek -> EARLY
-                else -> LATE
+                else -> {
+                    // Handle year-wrapping: compute shortest distance to peak in either direction
+                    val forwardToPeak = (species.peakWeek - currentWeek + 53) % 53
+                    val backFromPeak = (currentWeek - species.peakWeek + 53) % 53
+                    if (forwardToPeak <= backFromPeak) EARLY else LATE
+                }
             }
         }
     }

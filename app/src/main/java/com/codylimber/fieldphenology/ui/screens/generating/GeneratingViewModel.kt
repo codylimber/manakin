@@ -8,6 +8,7 @@ import com.codylimber.fieldphenology.data.generator.GenerationProgress
 import com.codylimber.fieldphenology.data.generator.GenerationService
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.navigation.GenerationParams
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -26,6 +27,7 @@ class GeneratingViewModel(
 
     private val _state = MutableStateFlow(GeneratingState())
     val state: StateFlow<GeneratingState> = _state
+    private var observeJob: Job? = null
 
     fun startGeneration(params: GenerationParams) {
         // If already running, just reconnect to the service's state
@@ -41,34 +43,37 @@ class GeneratingViewModel(
     }
 
     private fun observeService() {
-        viewModelScope.launch {
-            GenerationService.progress.collect { progress ->
-                if (progress != null) {
-                    val completed = _state.value.completedPhases.toMutableSet()
-                    for (phase in GenerationPhase.entries) {
-                        if (phase.ordinal < progress.phase.ordinal) completed.add(phase)
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
+            launch {
+                GenerationService.progress.collect { progress ->
+                    if (progress != null) {
+                        val completed = _state.value.completedPhases.toMutableSet()
+                        for (phase in GenerationPhase.entries) {
+                            if (phase.ordinal < progress.phase.ordinal) completed.add(phase)
+                        }
+                        _state.value = _state.value.copy(progress = progress, completedPhases = completed)
                     }
-                    _state.value = _state.value.copy(progress = progress, completedPhases = completed)
                 }
             }
-        }
 
-        viewModelScope.launch {
-            GenerationService.isComplete.collect { complete ->
-                if (complete) {
-                    repository.reloadDatasets()
-                    _state.value = _state.value.copy(
-                        isComplete = true,
-                        completedPhases = GenerationPhase.entries.toSet()
-                    )
+            launch {
+                GenerationService.isComplete.collect { complete ->
+                    if (complete) {
+                        repository.reloadDatasets()
+                        _state.value = _state.value.copy(
+                            isComplete = true,
+                            completedPhases = GenerationPhase.entries.toSet()
+                        )
+                    }
                 }
             }
-        }
 
-        viewModelScope.launch {
-            GenerationService.error.collect { error ->
-                if (error != null) {
-                    _state.value = _state.value.copy(error = error)
+            launch {
+                GenerationService.error.collect { error ->
+                    if (error != null) {
+                        _state.value = _state.value.copy(error = error)
+                    }
                 }
             }
         }

@@ -2,10 +2,12 @@ package com.codylimber.fieldphenology.notifications
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
-import android.os.Build
+import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.work.*
+import com.codylimber.fieldphenology.MainActivity
 import com.codylimber.fieldphenology.R
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import java.time.LocalDate
@@ -44,26 +46,34 @@ class WeeklyDigestWorker(
         }
 
         fun createChannel(context: Context) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val soundUri = android.net.Uri.parse(
-                    "android.resource://${context.packageName}/${R.raw.manakin_notification}"
-                )
-                val audioAttributes = android.media.AudioAttributes.Builder()
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
-                    .build()
-                val channel = NotificationChannel(
-                    CHANNEL_ID,
-                    "Weekly Species Digest",
-                    NotificationManager.IMPORTANCE_DEFAULT
-                ).apply {
-                    description = "Weekly summary of newly active species"
-                    setSound(soundUri, audioAttributes)
-                }
-                val manager = context.getSystemService(NotificationManager::class.java)
-                manager.createNotificationChannel(channel)
+            val soundUri = android.net.Uri.parse(
+                "android.resource://${context.packageName}/${R.raw.manakin_notification}"
+            )
+            val audioAttributes = android.media.AudioAttributes.Builder()
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                .build()
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Weekly Species Digest",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Weekly summary of newly active species"
+                setSound(soundUri, audioAttributes)
             }
+            val manager = context.getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
         }
+    }
+
+    private fun createOpenAppIntent(): PendingIntent {
+        val intent = Intent(applicationContext, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        return PendingIntent.getActivity(
+            applicationContext, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     override fun doWork(): Result {
@@ -93,6 +103,7 @@ class WeeklyDigestWorker(
 
         createChannel(applicationContext)
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
+        val openAppIntent = createOpenAppIntent()
 
         // Weekly digest
         if (sendDigest) {
@@ -129,10 +140,11 @@ class WeeklyDigestWorker(
                     }
                 }
                 val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setSmallIcon(R.drawable.ic_notification)
                     .setContentTitle("Manakin Weekly Digest")
                     .setContentText(body)
                     .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                    .setContentIntent(openAppIntent)
                     .setAutoCancel(true)
                     .build()
                 manager.notify(1001, notification)
@@ -154,7 +166,7 @@ class WeeklyDigestWorker(
                         val name = sp.commonName.ifEmpty { sp.scientificName }
                         if (sp.peakWeek == currentWeek) {
                             targetAtPeak.add(name)
-                        } else if (sp.peakWeek == currentWeek + 2) {
+                        } else if (sp.peakWeek == (currentWeek + 2 - 1) % 53 + 1) {
                             targetApproaching.add(name)
                         }
                     }
@@ -171,10 +183,11 @@ class WeeklyDigestWorker(
                         }
                     }
                     val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setSmallIcon(R.drawable.ic_notification)
                         .setContentTitle("\u2605 Target Species Alert")
                         .setContentText(body)
                         .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                        .setContentIntent(openAppIntent)
                         .setAutoCancel(true)
                         .build()
                     manager.notify(1002, notification)

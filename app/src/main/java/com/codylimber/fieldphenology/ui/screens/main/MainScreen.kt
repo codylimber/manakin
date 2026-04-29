@@ -280,6 +280,11 @@ fun MainScreen(
                             navController.popBackStack(Routes.SPECIES_LIST, inclusive = false)
                         }
                     )
+                } else {
+                    // Params lost (process death, back nav) — return to species list
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack(Routes.SPECIES_LIST, inclusive = false)
+                    }
                 }
             }
             composable(Routes.COMPARE) {

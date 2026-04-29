@@ -11,6 +11,6 @@ data class GenerationParams(
     val maxPhotos: Int = 3
 ) {
     companion object {
-        var current: GenerationParams? = null
+        @Volatile var current: GenerationParams? = null
     }
 }

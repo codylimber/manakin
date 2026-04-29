@@ -6,17 +6,15 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import com.codylimber.fieldphenology.MainActivity
 import com.codylimber.fieldphenology.R
 import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.ui.navigation.GenerationParams
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
 
 class GenerationService : Service() {
 
@@ -50,11 +48,7 @@ class GenerationService : Service() {
         fun start(context: Context) {
             reset()
             val intent = Intent(context, GenerationService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun enqueue(context: Context, params: GenerationParams) {
@@ -106,18 +100,7 @@ class GenerationService : Service() {
 
         _isRunning.value = true
 
-        val okHttpClient = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .header("User-Agent", "Manakin/1.2 (Android; github.com/codylimber/manakin)")
-                    .build()
-                chain.proceed(request)
-            }
-            .build()
-
-        val apiClient = INatApiClient(okHttpClient)
+        val apiClient = INatApiClient(MainActivity.sharedHttpClient)
         val generator = DatasetGenerator(apiClient, applicationContext)
 
         job = scope.launch {
@@ -174,18 +157,16 @@ class GenerationService : Service() {
     }
 
     private fun createChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Dataset Generation",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply { description = "Shows progress while downloading species data" }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID, "Dataset Generation",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply { description = "Shows progress while downloading species data" }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     private fun buildNotification(text: String): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Generating Dataset")
             .setContentText(text)
             .setOngoing(true)
