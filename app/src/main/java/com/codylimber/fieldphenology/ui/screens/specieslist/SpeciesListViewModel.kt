@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -106,6 +107,7 @@ class SpeciesListViewModel(
     }
 
     fun refresh() {
+        Log.d("SpeciesListVM", "refresh() called")
         repository.reloadDatasets()
         val datasets = buildDatasetOptions()
         val currentKeys = AppSettings.selectedDatasetKeys
@@ -287,7 +289,7 @@ class SpeciesListViewModel(
     private suspend fun updateSpeciesList() {
         val st = _state.value
 
-        val result = withContext(Dispatchers.Default) {
+        withContext(Dispatchers.Default) {
             val week = st.currentWeek
             val weekRange = if (st.isRangeMode && st.endWeek != null) {
                 if (st.currentWeek <= st.endWeek) (st.currentWeek..st.endWeek).toSet()
@@ -303,14 +305,12 @@ class SpeciesListViewModel(
                 for (sp in repository.getSpeciesForKey(key)) {
                     if (sp.taxonId in seen) continue
                     seen.add(sp.taxonId)
-                    // For ranges, use max abundance across the range
                     val abundance = if (st.isRangeMode) {
                         sp.weekly.filter { it.week in weekRange }.maxOfOrNull { it.relAbundance } ?: 0f
                     } else {
                         sp.weekly.find { it.week == week }?.relAbundance ?: 0f
                     }
                     val status = if (st.isRangeMode) {
-                        // Classify based on best week in range
                         when {
                             abundance >= 0.8f -> SpeciesStatus.PEAK
                             abundance >= 0.2f -> SpeciesStatus.ACTIVE
@@ -323,16 +323,15 @@ class SpeciesListViewModel(
                 }
             }
 
-            val activeCount = allWithStatus.count { it.status != SpeciesStatus.INACTIVE }
-            val observedCount = allWithStatus.count { it.isObserved }
-
             var filtered = if (st.showAllSpecies) allWithStatus
                 else allWithStatus.filter { it.status != SpeciesStatus.INACTIVE }
 
-            // Min activity threshold
-            val minThreshold = AppSettings.minActivityPercent / 100f
-            if (minThreshold > 0f) {
-                filtered = filtered.filter { it.currentAbundance >= minThreshold || it.status == SpeciesStatus.INACTIVE }
+            // Min activity threshold — only apply when showing active species, not in "All" mode
+            if (!st.showAllSpecies) {
+                val minThreshold = AppSettings.minActivityPercent / 100f
+                if (minThreshold > 0f) {
+                    filtered = filtered.filter { it.currentAbundance >= minThreshold || it.status == SpeciesStatus.INACTIVE }
+                }
             }
 
             filtered = when (st.observationFilter) {
@@ -369,22 +368,24 @@ class SpeciesListViewModel(
                 )
             }
 
-            // Build taxonomy headers when sorted by taxonomy
             val headers = if (st.sortMode == SortMode.TAXONOMY) {
                 buildTaxonomyHeaders(sorted)
             } else emptyMap()
 
-            Triple(sorted, headers, Triple(activeCount, allWithStatus.size, observedCount))
-        }
+            // Compute counts from the final displayed list so the info bar matches
+            val displayedActiveCount = sorted.count { it.status != SpeciesStatus.INACTIVE }
+            val displayedObservedCount = sorted.count { it.isObserved }
 
-        val (sorted, headers, counts) = result
-        _state.value = st.copy(
-            species = sorted,
-            activeCount = counts.first,
-            totalCount = counts.second,
-            observedCount = counts.third,
-            taxonomyHeaders = headers
-        )
+            _state.update { current ->
+                current.copy(
+                    species = sorted,
+                    activeCount = displayedActiveCount,
+                    totalCount = sorted.size,
+                    observedCount = displayedObservedCount,
+                    taxonomyHeaders = headers
+                )
+            }
+        }
     }
 
     private fun buildTaxonomyHeaders(sorted: List<SpeciesWithStatus>): Map<Int, String> {

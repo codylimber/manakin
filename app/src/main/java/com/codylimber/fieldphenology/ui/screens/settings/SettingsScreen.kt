@@ -24,7 +24,7 @@ import com.codylimber.fieldphenology.data.api.ObservationScope
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.data.model.SortMode
 import com.codylimber.fieldphenology.ui.theme.AppSettings
-import com.codylimber.fieldphenology.ui.theme.BottomNavBarPadding
+import com.codylimber.fieldphenology.ui.theme.LocalBottomPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 import com.codylimber.fieldphenology.ui.theme.ThemeState
 import kotlinx.coroutines.launch
@@ -470,7 +470,7 @@ fun SettingsScreen(
             }
 
 
-            Spacer(modifier = Modifier.height(BottomNavBarPadding))
+            Spacer(modifier = Modifier.height(LocalBottomPadding.current))
         }
     }
 }

@@ -32,7 +32,7 @@ import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.data.api.LifeListService
 import com.codylimber.fieldphenology.data.model.SortMode
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
-import com.codylimber.fieldphenology.ui.theme.BottomNavBarPadding
+import com.codylimber.fieldphenology.ui.theme.LocalBottomPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -154,7 +154,7 @@ fun SpeciesListScreen(
                         onClick = { onSpeciesClick(item.species.taxonId) })
                 }
             }
-            item { Spacer(modifier = Modifier.height(BottomNavBarPadding)) }
+            item { Spacer(modifier = Modifier.height(LocalBottomPadding.current)) }
         }
     }
 

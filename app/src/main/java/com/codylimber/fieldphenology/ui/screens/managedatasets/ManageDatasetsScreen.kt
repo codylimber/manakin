@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.codylimber.fieldphenology.data.repository.DatasetInfo
 import com.codylimber.fieldphenology.data.repository.DatasetSource
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
+import com.codylimber.fieldphenology.ui.theme.LocalBottomPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,7 +32,6 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ManageDatasetsScreen(
     repository: PhenologyRepository,
-    bottomBarHeight: androidx.compose.ui.unit.Dp = 0.dp,
     onBack: (() -> Unit)? = null,
     onAddDataset: () -> Unit = {},
     onUpdateDataset: ((meta: com.codylimber.fieldphenology.data.model.DatasetMetadata) -> Unit)? = null,
@@ -83,7 +83,7 @@ fun ManageDatasetsScreen(
             FloatingActionButton(
                 onClick = onAddDataset,
                 containerColor = Primary,
-                modifier = Modifier.padding(bottom = bottomBarHeight)
+                modifier = Modifier.padding(bottom = LocalBottomPadding.current)
             ) {
                 Icon(Icons.Default.Add, "Add Dataset")
             }
@@ -99,7 +99,7 @@ fun ManageDatasetsScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp + bottomBarHeight),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp + LocalBottomPadding.current),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 val exportable = datasets.filter { it.source == DatasetSource.INTERNAL }

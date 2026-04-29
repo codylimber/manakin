@@ -49,6 +49,7 @@ import com.codylimber.fieldphenology.ui.screens.settings.SettingsScreen
 import com.codylimber.fieldphenology.ui.screens.speciesdetail.SpeciesDetailScreen
 import com.codylimber.fieldphenology.ui.screens.specieslist.SpeciesListScreen
 import com.codylimber.fieldphenology.ui.screens.targets.TargetsScreen
+import com.codylimber.fieldphenology.ui.theme.LocalBottomPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 
 enum class Tab(val route: String, val label: String, val icon: ImageVector) {
@@ -158,6 +159,7 @@ fun MainScreen(
         }
     ) { padding ->
         val bottomBarHeight = padding.calculateBottomPadding()
+        CompositionLocalProvider(LocalBottomPadding provides bottomBarHeight) {
         NavHost(
             navController = navController,
             startDestination = Routes.SPECIES_LIST,
@@ -192,7 +194,6 @@ fun MainScreen(
                 val dsContext = LocalContext.current
                 ManageDatasetsScreen(
                     repository = repository,
-                    bottomBarHeight = bottomBarHeight,
                     onAddDataset = { navController.navigate(Routes.ADD_DATASET) },
                     onUpdateDataset = { meta ->
                         val tIds: List<Int?> = if (meta.taxonIds.isEmpty()) listOf(null) else meta.taxonIds.map { it }
@@ -323,6 +324,7 @@ fun MainScreen(
                     onBack = { navController.popBackStack() }
                 )
             }
+        }
         }
     }
 }
