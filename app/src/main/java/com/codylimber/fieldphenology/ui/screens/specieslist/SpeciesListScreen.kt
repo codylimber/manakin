@@ -28,6 +28,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.codylimber.fieldphenology.R
+import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.data.api.LifeListService
 import com.codylimber.fieldphenology.data.model.SortMode
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
