@@ -65,7 +65,6 @@ fun TripReportScreen(
     val fmt = DateTimeFormatter.ofPattern("MMM d, yyyy")
     val allKeys = repository.getKeys()
     var tripDatasetKeys by remember { mutableStateOf(AppSettings.selectedDatasetKeys.ifEmpty { allKeys.toSet() }) }
-    var showDatasetPicker by remember { mutableStateOf(false) }
 
     // Saved trips
     val tripsDir = remember { File(context.filesDir, "trips").also { it.mkdirs() } }
@@ -151,36 +150,16 @@ fun TripReportScreen(
         ) {
             // Dataset selector
             item {
-                val label = when {
-                    tripDatasetKeys.size == allKeys.size -> "All Datasets"
-                    tripDatasetKeys.size == 1 -> repository.getGroupName(tripDatasetKeys.first())
-                    else -> "${tripDatasetKeys.size} datasets"
-                }
-                Card(modifier = Modifier.fillMaxWidth().clickable { showDatasetPicker = true },
-                    shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
-                        Icon(Icons.Default.ArrowDropDown, null, tint = Primary)
-                    }
-                    DropdownMenu(expanded = showDatasetPicker, onDismissRequest = { showDatasetPicker = false }) {
-                        allKeys.forEach { key ->
-                            DropdownMenuItem(text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = key in tripDatasetKeys,
-                                        onCheckedChange = {
-                                            tripDatasetKeys = if (key in tripDatasetKeys && tripDatasetKeys.size > 1) tripDatasetKeys - key else tripDatasetKeys + key
-                                        }, colors = CheckboxDefaults.colors(checkedColor = Primary))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column {
-                                        Text(repository.getGroupName(key), fontSize = 14.sp)
-                                        Text(repository.getPlaceNameForKey(key), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                            }, onClick = { tripDatasetKeys = setOf(key); showDatasetPicker = false })
-                        }
-                    }
-                }
+                com.codylimber.fieldphenology.ui.components.DatasetSelector(
+                    datasets = allKeys.map { com.codylimber.fieldphenology.ui.components.DatasetItem(it, repository.getGroupName(it), repository.getPlaceNameForKey(it)) },
+                    selectedKeys = tripDatasetKeys,
+                    onSelectSingle = { key -> tripDatasetKeys = setOf(key) },
+                    onToggle = { key ->
+                        tripDatasetKeys = if (key in tripDatasetKeys && tripDatasetKeys.size > 1)
+                            tripDatasetKeys - key else tripDatasetKeys + key
+                    },
+                    onSelectAll = { tripDatasetKeys = allKeys.toSet() }
+                )
             }
 
             // Trip name + save/load

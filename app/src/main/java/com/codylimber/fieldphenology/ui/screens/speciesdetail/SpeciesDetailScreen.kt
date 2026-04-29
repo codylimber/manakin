@@ -28,6 +28,7 @@ import com.codylimber.fieldphenology.ui.components.ConservationBadge
 import com.codylimber.fieldphenology.ui.components.RarityDot
 import com.codylimber.fieldphenology.ui.components.StatusBadge
 import com.codylimber.fieldphenology.ui.theme.AppSettings
+import com.codylimber.fieldphenology.ui.theme.BottomNavBarPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -294,7 +295,7 @@ fun SpeciesDetailScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(88.dp))
+                Spacer(modifier = Modifier.height(BottomNavBarPadding))
             }
         }
     }

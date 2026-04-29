@@ -23,6 +23,7 @@ import com.codylimber.fieldphenology.data.model.SpeciesStatus
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.ui.screens.specieslist.SpeciesCard
+import com.codylimber.fieldphenology.ui.theme.BottomNavBarPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 import java.time.LocalDate
 import java.time.temporal.IsoFields
@@ -261,7 +262,7 @@ fun CompareScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(88.dp)) }
+            item { Spacer(modifier = Modifier.height(BottomNavBarPadding)) }
         }
     }
 }

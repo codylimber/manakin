@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.codylimber.fieldphenology.ui.theme.BottomNavBarPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -177,7 +178,7 @@ fun HelpScreen(onBack: () -> Unit, onReplayTutorial: () -> Unit = {}) {
                 "Only Creative Commons licensed photos are included."
             )
 
-            Spacer(modifier = Modifier.height(88.dp))
+            Spacer(modifier = Modifier.height(BottomNavBarPadding))
         }
     }
 }

@@ -32,6 +32,7 @@ import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.data.api.LifeListService
 import com.codylimber.fieldphenology.data.model.SortMode
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
+import com.codylimber.fieldphenology.ui.theme.BottomNavBarPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -98,9 +99,13 @@ fun SpeciesListScreen(
         ) {
             if (state.datasets.isNotEmpty()) {
                 item {
-                    DatasetSelector(state.datasets, state.selectedKeys, state.displayLabel,
-                        { viewModel.selectSingleDataset(it) }, { viewModel.toggleDataset(it) },
-                        { viewModel.selectAllDatasets() })
+                    com.codylimber.fieldphenology.ui.components.DatasetSelector(
+                        datasets = state.datasets.map { com.codylimber.fieldphenology.ui.components.DatasetItem(it.key, it.group, it.placeName) },
+                        selectedKeys = state.selectedKeys,
+                        onSelectSingle = { viewModel.selectSingleDataset(it) },
+                        onToggle = { viewModel.toggleDataset(it) },
+                        onSelectAll = { viewModel.selectAllDatasets() }
+                    )
                 }
             }
             item {
@@ -149,7 +154,7 @@ fun SpeciesListScreen(
                         onClick = { onSpeciesClick(item.species.taxonId) })
                 }
             }
-            item { Spacer(modifier = Modifier.height(88.dp)) }
+            item { Spacer(modifier = Modifier.height(BottomNavBarPadding)) }
         }
     }
 
@@ -178,30 +183,6 @@ fun SpeciesListScreen(
     }
 }
 
-@Composable
-private fun DatasetSelector(datasets: List<DatasetOption>, selectedKeys: Set<String>, displayLabel: String, onSelectSingle: (String) -> Unit, onToggle: (String) -> Unit, onSelectAll: () -> Unit = {}) {
-    var expanded by remember { mutableStateOf(false) }
-    Card(modifier = Modifier.fillMaxWidth().clickable { expanded = true }, shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(displayLabel, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Icon(Icons.Default.ArrowDropDown, "Switch", tint = Primary)
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.fillMaxWidth(0.9f)) {
-            DropdownMenuItem(
-                text = { Text("All Datasets", fontWeight = if (selectedKeys.size == datasets.size) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp, color = Primary) },
-                onClick = { onSelectAll(); expanded = false }
-            )
-            HorizontalDivider()
-            datasets.forEach { opt ->
-                DropdownMenuItem(text = { Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = opt.key in selectedKeys, onCheckedChange = { onToggle(opt.key) }, colors = CheckboxDefaults.colors(checkedColor = Primary))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column { Text(opt.group, fontWeight = if (opt.key in selectedKeys) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp); Text(opt.placeName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
-                } }, onClick = { onSelectSingle(opt.key); expanded = false })
-            }
-        }
-    }
-}
 
 @Composable
 private fun SortDropdown(currentSort: SortMode, onSortChange: (SortMode) -> Unit) {

@@ -24,6 +24,7 @@ import com.codylimber.fieldphenology.data.model.SpeciesStatus
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.screens.specieslist.SpeciesCard
 import com.codylimber.fieldphenology.ui.theme.AppSettings
+import com.codylimber.fieldphenology.ui.theme.BottomNavBarPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 import java.time.LocalDate
 import java.time.temporal.IsoFields
@@ -145,56 +146,17 @@ fun TargetsScreen(
             // Dataset selector
             if (keys.size > 1) {
                 item {
-                    var expanded by remember { mutableStateOf(false) }
-                    val displayLabel = when {
-                        selectedKeys.size == keys.size -> "All Datasets"
-                        selectedKeys.size == 1 -> {
-                            val k = selectedKeys.first()
-                            "${repository.getGroupName(k)} — ${repository.getPlaceNameForKey(k)}"
-                        }
-                        else -> "${selectedKeys.size} datasets selected"
-                    }
-                    Card(modifier = Modifier.fillMaxWidth().clickable { expanded = true },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(displayLabel, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f))
-                            Icon(Icons.Default.ArrowDropDown, "Switch", tint = Primary)
-                        }
-                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.fillMaxWidth(0.9f)) {
-                            DropdownMenuItem(
-                                text = { Text("All Datasets", fontWeight = if (selectedKeys.size == keys.size) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp, color = Primary) },
-                                onClick = { AppSettings.selectedDatasetKeys = keys.toSet(); expanded = false }
-                            )
-                            HorizontalDivider()
-                            keys.forEach { key ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Checkbox(
-                                                checked = key in selectedKeys,
-                                                onCheckedChange = {
-                                                    val newKeys = if (key in selectedKeys && selectedKeys.size > 1)
-                                                        selectedKeys - key else selectedKeys + key
-                                                    AppSettings.selectedDatasetKeys = newKeys
-                                                },
-                                                colors = CheckboxDefaults.colors(checkedColor = Primary)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Column {
-                                                Text(repository.getGroupName(key),
-                                                    fontWeight = if (key in selectedKeys) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp)
-                                                Text(repository.getPlaceNameForKey(key), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                                            }
-                                        }
-                                    },
-                                    onClick = { AppSettings.selectedDatasetKeys = setOf(key); expanded = false }
-                                )
-                            }
-                        }
-                    }
+                    com.codylimber.fieldphenology.ui.components.DatasetSelector(
+                        datasets = keys.map { com.codylimber.fieldphenology.ui.components.DatasetItem(it, repository.getGroupName(it), repository.getPlaceNameForKey(it)) },
+                        selectedKeys = selectedKeys,
+                        onSelectSingle = { key -> AppSettings.selectedDatasetKeys = setOf(key) },
+                        onToggle = { key ->
+                            val newKeys = if (key in selectedKeys && selectedKeys.size > 1)
+                                selectedKeys - key else selectedKeys + key
+                            AppSettings.selectedDatasetKeys = newKeys
+                        },
+                        onSelectAll = { AppSettings.selectedDatasetKeys = keys.toSet() }
+                    )
                 }
             }
 
@@ -266,7 +228,7 @@ fun TargetsScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(88.dp)) }
+            item { Spacer(modifier = Modifier.height(BottomNavBarPadding)) }
         }
     }
 }
