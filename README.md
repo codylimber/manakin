@@ -16,8 +16,8 @@ Named after the White-throated Manakin because it was the only .png of any anima
 - **Activity timeline** — weekly changelog of what entered peak, became active, or went inactive.
 - **Compare locations** — side-by-side view of species unique to each dataset.
 - **Home screen widget** — configurable: top active species, organism of the day, weekly changes, or targets.
-- **Notifications** — weekly digest of newly active/peak species, target species alerts before peak.
-- **Dataset sharing** — export packs as `.manakin` files, import from friends.
+- **Notifications** — weekly digest of newly active/peak species on configurable days. Daily target species alerts before peak.
+- **Dataset sharing** — export packs as `.manakin` files or bundles, import from friends.
 - **Light/dark mode**, scientific name toggle, configurable sort and activity threshold.
 
 ## Screenshots
@@ -65,39 +65,42 @@ app/src/main/java/com/codylimber/fieldphenology/
 ├── MainActivity.kt
 ├── data/
 │   ├── api/
-│   │   ├── INatApiClient.kt      # Rate-limited iNat API client
-│   │   ├── ApiModels.kt          # Search result models
-│   │   └── LifeListService.kt    # Observation tracking + caching
+│   │   ├── INatApiClient.kt        # Rate-limited iNat API client
+│   │   ├── ApiModels.kt            # Search result models
+│   │   └── LifeListService.kt      # Observation tracking + caching
 │   ├── generator/
-│   │   ├── DatasetGenerator.kt   # Downloads species data from iNat
-│   │   └── DataProcessor.kt      # Rarity, weekly matrix, flight periods
+│   │   ├── DatasetGenerator.kt     # Downloads species data from iNat
+│   │   ├── DataProcessor.kt        # Rarity, weekly matrix, flight periods
+│   │   └── GenerationService.kt    # Foreground service for dataset generation
 │   ├── model/
-│   │   └── Dataset.kt            # @Serializable data classes
+│   │   └── Dataset.kt              # @Serializable data classes
 │   └── repository/
-│       └── PhenologyRepository.kt # Loads datasets from assets + storage
+│       └── PhenologyRepository.kt  # Loads datasets from assets + storage
 ├── notifications/
-│   └── WeeklyDigestWorker.kt     # Background notification worker
+│   └── WeeklyDigestWorker.kt       # Background notification worker
 ├── widget/
-│   └── ManakinWidget.kt          # Home screen widget
+│   ├── ManakinGlanceWidget.kt      # Home screen widget (Glance)
+│   ├── PhenologyChartRenderer.kt   # Bitmap chart renderer for widget
+│   └── WidgetImageLoader.kt        # Image loading for widget
 └── ui/
-    ├── theme/                    # Colors, theme, AppSettings
-    ├── components/               # StatusBadge, RarityDot, etc.
-    ├── navigation/               # Routes, GenerationParams
+    ├── theme/                      # Colors, theme, dimensions, AppSettings
+    ├── components/                 # DatasetSelector, StatusBadge, etc.
+    ├── navigation/                 # Routes, GenerationParams
     └── screens/
-        ├── main/                 # Bottom nav shell
-        ├── specieslist/          # Explore tab + SpeciesCard
-        ├── speciesdetail/        # Species detail + phenology chart
-        ├── targets/              # Targets tab
-        ├── compare/              # Compare locations
-        ├── timeline/             # Activity timeline
-        ├── tripreport/           # Trip reports
-        ├── adddataset/           # Dataset creation form
-        ├── generating/           # Generation progress
-        ├── managedatasets/        # Dataset management
-        ├── settings/             # App settings
-        ├── onboarding/           # First-launch walkthrough
-        ├── help/                 # Help page
-        └── about/                # About + attribution
+        ├── main/                   # Bottom nav shell
+        ├── specieslist/            # Explore tab + SpeciesCard + ViewModel
+        ├── speciesdetail/          # Species detail, phenology chart, photo carousel
+        ├── targets/                # Targets tab
+        ├── compare/                # Compare locations
+        ├── timeline/               # Activity timeline
+        ├── tripreport/             # Trip reports
+        ├── adddataset/             # Dataset creation form + ViewModel
+        ├── generating/             # Generation progress + ViewModel
+        ├── managedatasets/          # Dataset management
+        ├── settings/               # App settings
+        ├── onboarding/             # First-launch walkthrough
+        ├── help/                   # Help page
+        └── about/                  # About + attribution
 ```
 
 ## Tech Stack
@@ -108,6 +111,7 @@ app/src/main/java/com/codylimber/fieldphenology/
 - **kotlinx.serialization** for JSON
 - **Coil 3** for image loading
 - **WorkManager** for background notifications
+- **Glance** for home screen widgets
 - No database — JSON files in assets and internal storage
 
 ## Data & Attribution
@@ -132,4 +136,4 @@ Please test with at least one downloaded dataset before submitting.
 
 ## License
 
-*TODO: Choose a license*
+MIT License. See [LICENSE](LICENSE) for details.
