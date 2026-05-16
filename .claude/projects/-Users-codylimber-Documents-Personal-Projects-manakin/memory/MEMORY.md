@@ -1,2 +1,0 @@
-- [User Profile](user_profile.md) — Android dev working on Manakin, a species phenology companion app
-- [Project Overview](project_manakin.md) — Kotlin/Compose Android app using iNaturalist data for species phenology
