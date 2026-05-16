@@ -146,11 +146,14 @@ final class SpeciesListViewModel {
         guard !candidates.isEmpty else { return nil }
         let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
         let pick = candidates[dayOfYear % candidates.count]
+        let photoURL = pick.species.photos.first.flatMap {
+            repository?.getPhotoURL(key: pick.sourceKey, filename: $0.file)
+        }
         return OrganismOfTheDay(
             species: pick.species,
             key: pick.sourceKey,
             status: pick.status,
-            photoURL: nil
+            photoURL: photoURL
         )
     }
 
@@ -551,6 +554,14 @@ struct SpeciesListView: View {
                 .foregroundColor(.primary)
                 .fontWeight(.bold)
             if let ootd = viewModel.getOrganismOfTheDay() {
+                if let url = ootd.photoURL, let uiImage = UIImage(contentsOfFile: url.path) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
                 let useSci = appSettings.useScientificNames
                 let primaryName = useSci ? ootd.species.scientificName
                     : (ootd.species.commonName.isEmpty ? ootd.species.scientificName : ootd.species.commonName)
@@ -563,6 +574,7 @@ struct SpeciesListView: View {
                         .italic(!useSci)
                         .foregroundColor(colors.onSurfaceVariant)
                 }
+                StatusBadge(status: ootd.status)
                 Text(ootd.key)
                     .font(.system(size: 13))
                     .foregroundColor(colors.onSurfaceVariant)
