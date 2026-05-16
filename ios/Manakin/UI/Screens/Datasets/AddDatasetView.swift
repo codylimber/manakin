@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct AddDatasetState {
     var placeQuery: String = ""
@@ -225,10 +226,7 @@ struct AddDatasetView: View {
 
     @State private var viewModel: AddDatasetViewModel?
     @State private var importSuccess: Bool?
-    @State private var isGenerating = false
-    @State private var generationProgress: GenerationProgress?
-    @State private var generationError: String?
-    @State private var generationComplete = false
+    @State private var showFileImporter = false
 
     private var vm: AddDatasetViewModel {
         viewModel!
@@ -244,57 +242,25 @@ struct AddDatasetView: View {
                 }
             }
         }
-        .overlay {
-            if isGenerating {
-                ZStack {
-                    Color.black.opacity(0.7).ignoresSafeArea()
-                    VStack(spacing: 16) {
-                        if generationComplete {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 48))
-                                .foregroundColor(.appPrimary)
-                            Text("Dataset Generated!")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            Button("Done") {
-                                dismiss()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.appPrimary)
-                        } else if let error = generationError {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 48))
-                                .foregroundColor(.red)
-                            Text("Error: \(error)")
-                                .font(.subheadline)
-                                .foregroundColor(.white)
-                                .multilineTextAlignment(.center)
-                            Button("Dismiss") {
-                                isGenerating = false
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.red)
-                        } else {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                                .tint(.appPrimary)
-                            if let progress = generationProgress {
-                                Text(progress.message)
-                                    .font(.subheadline)
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
-                                Text("\(progress.current)/\(progress.total)")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.7))
-                            } else {
-                                Text("Starting...")
-                                    .font(.subheadline)
-                                    .foregroundColor(.white)
-                            }
-                        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [UTType.data],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                let accessing = url.startAccessingSecurityScopedResource()
+                defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+                if let repo = repository {
+                    let success = repo.importDataset(from: url)
+                    importSuccess = success
+                    if success {
+                        repo.reloadDatasets()
                     }
-                    .padding(32)
                 }
+            case .failure:
+                importSuccess = false
             }
         }
         .background(colors.background)
@@ -536,32 +502,8 @@ struct AddDatasetView: View {
                         qualityGrade: vm.state.qualityGrade,
                         maxPhotos: Int(vm.state.maxPhotos) ?? 3
                     )
-                    print("[AddDataset] Generate tapped, starting generation")
-                    isGenerating = true
-                    generationError = nil
-                    generationComplete = false
-                    let generator = DatasetGenerator(apiClient: apiClient)
-                    let params = GenerationParams.current!
-                    Task {
-                        do {
-                            for try await progress in generator.generate(
-                                placeIds: params.placeIds,
-                                placeName: params.placeName,
-                                taxonIds: params.taxonIds,
-                                taxonName: params.taxonName,
-                                groupName: params.groupName,
-                                minObs: params.minObs,
-                                qualityGrade: params.qualityGrade,
-                                maxPhotos: params.maxPhotos
-                            ) {
-                                generationProgress = progress
-                            }
-                            generationComplete = true
-                            repository?.reloadDatasets()
-                        } catch {
-                            generationError = error.localizedDescription
-                        }
-                    }
+                    print("[AddDataset] Generate tapped, navigating to generating screen")
+                    onGenerate()
                 } label: {
                     Text("Generate Dataset")
                         .font(.system(size: 16, weight: .semibold))
@@ -623,8 +565,7 @@ struct AddDatasetView: View {
                     .foregroundColor(colors.onSurfaceVariant)
 
                 Button {
-                    // File import would use a document picker
-                    // For now, placeholder
+                    showFileImporter = true
                 } label: {
                     Text("Choose File")
                         .font(.system(size: 13))

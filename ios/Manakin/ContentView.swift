@@ -107,8 +107,7 @@ struct ContentView: View {
             SpeciesDetailView(taxonId: taxonId, repository: repository, lifeListService: lifeListService ?? LifeListService(apiClient: apiClient))
         case .addDataset:
             AddDatasetView(apiClient: apiClient, onGenerate: {
-                // Generation params are set by AddDatasetView before calling this
-                // Navigate to generating screen or pop back
+                navigateToRoute(.generating)
             }, repository: repository)
         case .generating:
             if let params = GenerationParams.current {
@@ -116,8 +115,8 @@ struct ContentView: View {
                     params: params,
                     generator: DatasetGenerator(apiClient: apiClient),
                     repository: repository,
-                    onDone: {},
-                    onCancel: {}
+                    onDone: { popCurrentPath() },
+                    onCancel: { popCurrentPath() }
                 )
             } else {
                 Text("No generation in progress").navigationTitle("Generating")
@@ -145,6 +144,15 @@ struct ContentView: View {
         case .targets: targetsPath.append(route)
         case .datasets: datasetsPath.append(route)
         case .settings: settingsPath.append(route)
+        }
+    }
+
+    private func popCurrentPath() {
+        switch selectedTab {
+        case .explore: if !explorePath.isEmpty { explorePath.removeLast() }
+        case .targets: if !targetsPath.isEmpty { targetsPath.removeLast() }
+        case .datasets: if !datasetsPath.isEmpty { datasetsPath.removeLast() }
+        case .settings: if !settingsPath.isEmpty { settingsPath.removeLast() }
         }
     }
 }
