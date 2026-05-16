@@ -2,6 +2,8 @@
 
 A field companion app for exploring species phenology — what's active near you, right now.
 
+Available for **Android** and **iOS**.
+
 Manakin uses community science data from [iNaturalist](https://www.inaturalist.org) to show you which species are most likely to be observed in your area this week, when they'll peak, and how their activity changes throughout the year.
 
 Named after the White-throated Manakin because it was the only .png of an animal that I had on my computer that I had made. Also a play on Merlin (the bird ID app), but for all of nature.
@@ -15,7 +17,7 @@ Named after the White-throated Manakin because it was the only .png of an animal
 - **Trip planning** — date picker and date range for future trips. Trip reports with save/load and share.
 - **Activity timeline** — weekly changelog of what entered peak, became active, or went inactive.
 - **Compare locations** — side-by-side view of species unique to each dataset.
-- **Home screen widget** — configurable: top active species, organism of the day, weekly changes, or targets.
+- **Home screen widget** (Android) — configurable: top active species, organism of the day, weekly changes, or targets.
 - **Notifications** — weekly digest of newly active/peak species on configurable days. Daily target species alerts before peak.
 - **Dataset sharing** — export packs as `.manakin` files or bundles, import from friends.
 - **Light/dark mode**, scientific name toggle, configurable sort and activity threshold.
@@ -24,95 +26,125 @@ Named after the White-throated Manakin because it was the only .png of an animal
 
 *TODO: Add screenshots*
 
-## Getting Started
+## Installing the App
 
-### Prerequisites
+### Android — Install from APK
 
-- [Android Studio](https://developer.android.com/studio) (Ladybug or newer)
-- JDK 21 (bundled with Android Studio)
-- An Android device or emulator (API 26+, Android 8.0+)
+The easiest way to try Manakin on Android:
 
-### Setup
+1. Download the latest APK from the [Releases](https://github.com/codylimber/manakin/releases) page (or build it yourself — see below)
+2. Transfer the APK to your Android device
+3. Open it and tap **Install** (you may need to enable "Install from unknown sources" in Settings)
+
+### iOS — Build from Source
+
+iOS requires building from source with Xcode (no sideloading like Android):
+
+1. You need a **Mac with Xcode** installed (free from the App Store)
+2. Clone the repo:
+   ```bash
+   git clone https://github.com/codylimber/manakin.git
+   cd manakin/ios
+   ```
+3. Install [XcodeGen](https://github.com/yonaskolb/XcodeGen) (if not already installed):
+   ```bash
+   brew install xcodegen
+   ```
+4. Generate the Xcode project:
+   ```bash
+   xcodegen generate
+   ```
+5. Open in Xcode:
+   ```bash
+   open Manakin.xcodeproj
+   ```
+6. In Xcode:
+   - Select the **Manakin** target > **Signing & Capabilities**
+   - Check **Automatically manage signing**
+   - Select your **Personal Team** (sign in with your Apple ID if needed)
+7. Select a destination:
+   - **Simulator** (e.g., iPhone 16 Pro) — works immediately, no device needed
+   - **Your iPhone** — plug in via USB, trust the device
+8. Press **Cmd+R** to build and run
+
+> **Note:** Apps built with a free Apple ID expire after 7 days on a physical device. For longer-term use or sharing via TestFlight, a paid Apple Developer account ($99/year) is needed.
+
+## Building from Source
+
+### Android
+
+**Prerequisites:** [Android Studio](https://developer.android.com/studio) (Ladybug or newer), JDK 21
 
 1. Clone the repo:
    ```bash
    git clone https://github.com/codylimber/manakin.git
    cd manakin
    ```
+2. Open in Android Studio: File > Open > select the `manakin` folder
+3. Wait for Gradle sync, then click Run (or `Shift+F10`)
 
-2. Open in Android Studio:
-   - File > Open > select the `manakin` folder
-   - Wait for Gradle sync to complete
-
-3. Run:
-   - Select a device/emulator from the toolbar
-   - Click the green play button (or `Shift+F10`)
-
-The app comes bundled with a Connecticut butterflies dataset so you can explore immediately. Download more packs from within the app (Datasets tab > +).
-
-### Building the APK
-
+To build an APK:
 ```bash
 ./gradlew assembleDebug
 ```
-
 The APK will be at `app/build/outputs/apk/debug/app-debug.apk`.
+
+### iOS
+
+**Prerequisites:** Mac with [Xcode](https://apps.apple.com/app/xcode/id497799835) (free), [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
+
+```bash
+cd ios
+xcodegen generate
+open Manakin.xcodeproj
+```
+
+Then set your signing team and run on a simulator or device (see install instructions above).
+
+The app comes bundled with a Connecticut butterflies dataset so you can explore immediately. Download more packs from within the app (Datasets tab > +).
 
 ## Project Structure
 
 ```
-app/src/main/java/com/codylimber/fieldphenology/
-├── MainActivity.kt
-├── data/
-│   ├── api/
-│   │   ├── INatApiClient.kt        # Rate-limited iNat API client
-│   │   ├── ApiModels.kt            # Search result models
-│   │   └── LifeListService.kt      # Observation tracking + caching
-│   ├── generator/
-│   │   ├── DatasetGenerator.kt     # Downloads species data from iNat
-│   │   ├── DataProcessor.kt        # Rarity, weekly matrix, flight periods
-│   │   └── GenerationService.kt    # Foreground service for dataset generation
-│   ├── model/
-│   │   └── Dataset.kt              # @Serializable data classes
-│   └── repository/
-│       └── PhenologyRepository.kt  # Loads datasets from assets + storage
-├── notifications/
-│   └── WeeklyDigestWorker.kt       # Background notification worker
-├── widget/
-│   ├── ManakinGlanceWidget.kt      # Home screen widget (Glance)
-│   ├── PhenologyChartRenderer.kt   # Bitmap chart renderer for widget
-│   └── WidgetImageLoader.kt        # Image loading for widget
-└── ui/
-    ├── theme/                      # Colors, theme, dimensions, AppSettings
-    ├── components/                 # DatasetSelector, StatusBadge, etc.
-    ├── navigation/                 # Routes, GenerationParams
-    └── screens/
-        ├── main/                   # Bottom nav shell
-        ├── specieslist/            # Explore tab + SpeciesCard + ViewModel
-        ├── speciesdetail/          # Species detail, phenology chart, photo carousel
-        ├── targets/                # Targets tab
-        ├── compare/                # Compare locations
-        ├── timeline/               # Activity timeline
-        ├── tripreport/             # Trip reports
-        ├── adddataset/             # Dataset creation form + ViewModel
-        ├── generating/             # Generation progress + ViewModel
-        ├── managedatasets/          # Dataset management
-        ├── settings/               # App settings
-        ├── onboarding/             # First-launch walkthrough
-        ├── help/                   # Help page
-        └── about/                  # About + attribution
+manakin/
+├── app/                              # Android app (Kotlin + Jetpack Compose)
+│   └── src/main/java/com/codylimber/fieldphenology/
+│       ├── MainActivity.kt
+│       ├── data/                     # API client, models, repository, generator
+│       ├── notifications/            # Weekly digest worker
+│       ├── widget/                   # Home screen widget (Glance)
+│       └── ui/                       # Screens, components, theme, navigation
+│
+├── ios/                              # iOS app (SwiftUI)
+│   ├── project.yml                   # XcodeGen project spec
+│   └── Manakin/
+│       ├── ManakinApp.swift
+│       ├── Data/                     # API client, models, repository, generator
+│       ├── Notifications/            # Notification manager
+│       └── UI/                       # Screens, components, theme, navigation
+│
+├── README.md
+└── LICENSE
 ```
 
 ## Tech Stack
 
+### Android
 - **Kotlin** + **Jetpack Compose** (Material 3)
-- **Navigation Compose** for routing
-- **OkHttp** for API calls
+- **OkHttp** for networking
 - **kotlinx.serialization** for JSON
 - **Coil 3** for image loading
 - **WorkManager** for background notifications
 - **Glance** for home screen widgets
-- No database — JSON files in assets and internal storage
+
+### iOS
+- **Swift** + **SwiftUI** (iOS 17+)
+- **URLSession** for networking
+- **Codable** for JSON
+- **Swift concurrency** (async/await, actors)
+- No third-party dependencies
+
+Both platforms use JSON files (no database) and share the same bundled dataset.
 
 ## Data & Attribution
 
