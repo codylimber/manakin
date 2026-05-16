@@ -336,6 +336,7 @@
 			buildConfigurationList = 05F8BAC425AEA76E6BC9A96B /* Build configuration list for PBXNativeTarget "Manakin" */;
 			buildPhases = (
 				184EC280E0BC4BC7DE440046 /* Sources */,
+				449E82E0B4BB2E8B7A327D8C /* Copy Bundled Datasets */,
 				D12DA873F25C3FB2004A5822 /* Resources */,
 			);
 			buildRules = (
@@ -388,6 +389,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		449E82E0B4BB2E8B7A327D8C /* Copy Bundled Datasets */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Bundled Datasets";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/datasets\"\ncp -R \"${SRCROOT}/Manakin/Resources/datasets/\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/datasets/\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		184EC280E0BC4BC7DE440046 /* Sources */ = {

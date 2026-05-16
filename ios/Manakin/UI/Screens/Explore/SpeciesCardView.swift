@@ -185,17 +185,10 @@ struct SpeciesCardView: View {
 
     private var thumbnailView: some View {
         Group {
-            if let url = photoURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    default:
-                        Color.gray.opacity(0.3)
-                    }
-                }
+            if let url = photoURL, let uiImage = UIImage(contentsOfFile: url.path) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
             } else {
                 Color.gray.opacity(0.2)
             }

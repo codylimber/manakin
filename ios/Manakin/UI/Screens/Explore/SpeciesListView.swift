@@ -473,6 +473,7 @@ struct SpeciesListView: View {
                                 species: item.species,
                                 status: item.status,
                                 currentWeek: viewModel.currentWeek,
+                                photoURL: item.species.photos.first.flatMap { repository.getPhotoURL(key: item.sourceKey, filename: $0.file) },
                                 isObserved: item.isObserved,
                                 showObservedIndicator: viewModel.hasLifeList
                             )
@@ -584,27 +585,29 @@ struct ActiveAllToggle: View {
     @Environment(\.appColors) private var colors
 
     var body: some View {
-        HStack(spacing: 0) {
-            toggleButton(label: "Active", isSelected: !showAll) {
+        HStack(spacing: 2) {
+            pillButton(label: "Active", isSelected: !showAll) {
                 onToggle(false)
             }
-            toggleButton(label: "All", isSelected: showAll) {
+            pillButton(label: "All", isSelected: showAll) {
                 onToggle(true)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(3)
+        .background(colors.surfaceVariant)
+        .clipShape(Capsule())
     }
 
-    private func toggleButton(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+    private func pillButton(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(isSelected ? colors.onPrimary : colors.onSurfaceVariant)
-                .padding(.horizontal, 12)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(isSelected ? .white : colors.onSurfaceVariant)
+                .padding(.horizontal, 14)
                 .padding(.vertical, 6)
                 .background(isSelected ? Color.primary : Color.clear)
+                .clipShape(Capsule())
         }
-        .background(isSelected ? Color.clear : colors.surfaceVariant)
     }
 }
 

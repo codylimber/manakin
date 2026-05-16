@@ -230,8 +230,11 @@ struct TargetsView: View {
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 4) {
-                    activeAllToggle
-                    overflowMenu
+                    ActiveAllToggle(
+                        showAll: !appSettings.showActiveOnly,
+                        onToggle: { showAll in appSettings.showActiveOnly = !showAll }
+                    )
+                    AppOverflowMenu()
                 }
             }
         }

@@ -86,7 +86,7 @@ struct ManageDatasetsView: View {
                     .foregroundColor(.primary)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                overflowMenu
+                AppOverflowMenu()
             }
         }
         .onAppear {

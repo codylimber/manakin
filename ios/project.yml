@@ -25,12 +25,14 @@ targets:
           - "Resources/datasets/**"
           - "Resources/Sounds/**"
     resources:
-      - path: Manakin/Resources/datasets
-        buildPhase: resources
-        type: folder
       - path: Manakin/Resources/Sounds
         buildPhase: resources
-        type: folder
+    postCompileScripts:
+      - name: "Copy Bundled Datasets"
+        script: |
+          mkdir -p "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/datasets"
+          cp -R "${SRCROOT}/Manakin/Resources/datasets/" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/datasets/"
+        basedOnDependencyAnalysis: false
     settings:
       base:
         GENERATE_INFOPLIST_FILE: true
