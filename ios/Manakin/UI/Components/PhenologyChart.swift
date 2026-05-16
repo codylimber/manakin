@@ -48,7 +48,7 @@ struct PhenologyChart: View {
                 )
                 context.fill(
                     Path(rect),
-                    with: .color(Color.primary.opacity(alpha))
+                    with: .color(Color.appPrimary.opacity(alpha))
                 )
             }
 

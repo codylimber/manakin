@@ -13,11 +13,11 @@ struct HelpView: View {
                 Button(action: onReplayTutorial) {
                     HStack(spacing: 12) {
                         Image(systemName: "play.fill")
-                            .foregroundColor(.primary)
+                            .foregroundColor(.appPrimary)
                         VStack(alignment: .leading) {
                             Text("Replay Tutorial")
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.primary)
+                                .foregroundColor(.appPrimary)
                             Text("Walk through the app basics again")
                                 .font(.system(size: 13))
                                 .foregroundColor(colors.onSurfaceVariant)
@@ -25,7 +25,7 @@ struct HelpView: View {
                         Spacer()
                     }
                     .padding(16)
-                    .background(Color.primary.opacity(0.1))
+                    .background(Color.appPrimary.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
@@ -95,13 +95,13 @@ struct HelpView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
             ToolbarItem(placement: .principal) {
                 Text("How to Use Manakin")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
         }
     }

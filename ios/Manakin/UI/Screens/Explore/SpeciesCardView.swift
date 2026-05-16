@@ -98,7 +98,7 @@ struct SpeciesCardView: View {
         } else if pastThreshold && isFavorite {
             return Color.red.opacity(0.2)
         } else if swipeOffset > 10 && !isFavorite {
-            return Color.primary.opacity(0.1)
+            return Color.appPrimary.opacity(0.1)
         } else if swipeOffset > 10 && isFavorite {
             return Color.red.opacity(0.1)
         }

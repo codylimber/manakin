@@ -113,11 +113,11 @@ struct TripReportView: View {
 
                     Button("Save") { saveTrip() }
                         .font(.system(size: 13))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
 
                     Button("Load") { showSavedTrips = true }
                         .font(.system(size: 13))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
             .listRowBackground(Color.clear)
@@ -172,18 +172,18 @@ struct TripReportView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
             ToolbarItem(placement: .principal) {
                 Text("Trip Report")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { shareReport() } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
         }
@@ -203,7 +203,7 @@ struct TripReportView: View {
             VStack {
                 Text("\(checkedCount)")
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
                 Text("Found")
                     .font(.system(size: 12))
                     .foregroundColor(colors.onSurfaceVariant)
@@ -222,7 +222,7 @@ struct TripReportView: View {
                 let pct = activeSpecies.isEmpty ? 0 : (checkedCount * 100 / activeSpecies.count)
                 Text("\(pct)%")
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
                 Text("Rate")
                     .font(.system(size: 12))
                     .foregroundColor(colors.onSurfaceVariant)
@@ -241,7 +241,7 @@ struct TripReportView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: isChecked ? "checkmark.square.fill" : "square")
-                    .foregroundColor(isChecked ? .primary : colors.onSurfaceVariant)
+                    .foregroundColor(isChecked ? .appPrimary : colors.onSurfaceVariant)
 
                 VStack(alignment: .leading, spacing: 1) {
                     let useSci = appSettings.useScientificNames
@@ -261,11 +261,11 @@ struct TripReportView: View {
                 if isChecked {
                     Image(systemName: "checkmark")
                         .font(.system(size: 16))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
             .padding(12)
-            .background(isChecked ? Color.primary.opacity(0.1) : colors.surface)
+            .background(isChecked ? Color.appPrimary.opacity(0.1) : colors.surface)
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)

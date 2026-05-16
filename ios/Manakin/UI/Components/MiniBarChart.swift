@@ -3,7 +3,7 @@ import SwiftUI
 struct MiniBarChart: View {
     let weekly: [WeeklyEntry]
     let currentWeek: Int
-    var barColor: Color = .primary
+    var barColor: Color = .appPrimary
 
     var body: some View {
         Canvas { context, size in

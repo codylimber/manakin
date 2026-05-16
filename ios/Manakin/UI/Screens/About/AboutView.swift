@@ -11,7 +11,7 @@ struct AboutView: View {
                 VStack(spacing: 8) {
                     Text("Manakin")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                     Text("Version 1.2")
                         .font(.system(size: 13))
                         .foregroundColor(colors.onSurfaceVariant)
@@ -42,12 +42,12 @@ struct AboutView: View {
                 } label: {
                     Text("Visit iNaturalist.org")
                         .font(.system(size: 14))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.primary.opacity(0.5), lineWidth: 1)
+                                .stroke(Color.appPrimary.opacity(0.5), lineWidth: 1)
                         )
                 }
 
@@ -91,13 +91,13 @@ struct AboutView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
             ToolbarItem(placement: .principal) {
                 Text("About Manakin")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
         }
     }

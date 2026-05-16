@@ -14,7 +14,7 @@ struct AppColorScheme {
 
 extension AppColorScheme {
     static let dark = AppColorScheme(
-        primary: .primary,
+        primary: .appPrimary,
         onPrimary: .darkBackground,
         secondary: .primaryLight,
         background: .darkBackground,
@@ -28,7 +28,7 @@ extension AppColorScheme {
     static let light = AppColorScheme(
         primary: .primaryDark,
         onPrimary: .lightBackground,
-        secondary: .primary,
+        secondary: .appPrimary,
         background: .lightBackground,
         surface: .lightSurface,
         surfaceVariant: .lightSurfaceVariant,

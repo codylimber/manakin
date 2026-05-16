@@ -67,7 +67,7 @@ struct DatasetSelector: View {
                     .lineLimit(1)
                 Spacer()
                 Image(systemName: "chevron.down")
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

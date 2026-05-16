@@ -44,10 +44,10 @@ struct ManageDatasetsView: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: "square.and.arrow.up")
                                         .font(.system(size: 14))
-                                        .foregroundColor(.primary)
+                                        .foregroundColor(.appPrimary)
                                     Text("Export Bundle")
                                         .font(.system(size: 13))
-                                        .foregroundColor(.primary)
+                                        .foregroundColor(.appPrimary)
                                 }
                             }
                         }
@@ -70,7 +70,7 @@ struct ManageDatasetsView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(width: 56, height: 56)
-                    .background(Color.primary)
+                    .background(Color.appPrimary)
                     .clipShape(Circle())
                     .shadow(radius: 4)
             }
@@ -83,7 +83,7 @@ struct ManageDatasetsView: View {
             ToolbarItem(placement: .principal) {
                 Text("Datasets")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 AppOverflowMenu()
@@ -140,7 +140,7 @@ struct ManageDatasetsView: View {
                 } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 16))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
                 .buttonStyle(.plain)
             }
@@ -151,7 +151,7 @@ struct ManageDatasetsView: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 16))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
                 .buttonStyle(.plain)
                 .disabled(isExporting)
@@ -216,7 +216,7 @@ struct ManageDatasetsView: View {
                             }
                         } label: {
                             Image(systemName: bundleSelectedKeys.contains(info.key) ? "checkmark.square.fill" : "square")
-                                .foregroundColor(.primary)
+                                .foregroundColor(.appPrimary)
                         }
                         VStack(alignment: .leading) {
                             Text(info.group)
@@ -256,7 +256,7 @@ struct ManageDatasetsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(bundleSelectedKeys.isEmpty || isExporting ? Color.gray : Color.primary)
+                        .background(bundleSelectedKeys.isEmpty || isExporting ? Color.gray : Color.appPrimary)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .disabled(bundleSelectedKeys.isEmpty || isExporting)
@@ -292,7 +292,7 @@ struct ManageDatasetsView: View {
             }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .foregroundColor(.primary)
+                .foregroundColor(.appPrimary)
         }
     }
 }

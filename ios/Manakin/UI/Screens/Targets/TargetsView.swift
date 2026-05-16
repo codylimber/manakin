@@ -188,7 +188,7 @@ struct TargetsView: View {
                     Section {
                         Text(group)
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
+                            .foregroundColor(.appPrimary)
                             .listRowBackground(Color.clear)
 
                         ForEach(grouped[group] ?? [], id: \.species.taxonId) { target in
@@ -226,7 +226,7 @@ struct TargetsView: View {
             ToolbarItem(placement: .principal) {
                 Text("Targets")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 4) {
@@ -260,10 +260,10 @@ struct TargetsView: View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 13))
-                .foregroundColor(isSelected ? .primary : colors.onSurfaceVariant)
+                .foregroundColor(isSelected ? .appPrimary : colors.onSurfaceVariant)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(isSelected ? Color.primary.opacity(0.2) : colors.surfaceVariant)
+                .background(isSelected ? Color.appPrimary.opacity(0.2) : colors.surfaceVariant)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -300,10 +300,10 @@ struct TargetsView: View {
         } label: {
             Text(appSettings.showActiveOnly ? "Active" : "All")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(.appPrimary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.primary.opacity(0.15))
+                .background(Color.appPrimary.opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
         }
     }
@@ -328,7 +328,7 @@ struct TargetsView: View {
             }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .foregroundColor(.primary)
+                .foregroundColor(.appPrimary)
         }
     }
 
@@ -350,10 +350,10 @@ struct TargetsView: View {
             HStack(spacing: 2) {
                 Text(sortModeLabel)
                     .font(.system(size: 12))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
         }
     }

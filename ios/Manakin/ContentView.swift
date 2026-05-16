@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var settingsPath = NavigationPath()
     @State private var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
     private let apiClient = INatApiClient()
+    @State private var lifeListService: LifeListService?
 
     enum AppTab: String, CaseIterable {
         case explore, targets, datasets, settings
@@ -41,9 +42,14 @@ struct ContentView: View {
                 UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
             }, isReplay: false)
         } else {
+            let sharedLifeListService = lifeListService ?? {
+                let s = LifeListService(apiClient: apiClient)
+                Task { @MainActor in lifeListService = s }
+                return s
+            }()
             TabView(selection: $selectedTab) {
                 NavigationStack(path: $explorePath) {
-                    SpeciesListView()
+                    SpeciesListView(lifeListService: sharedLifeListService)
                         .navigationDestination(for: AppRoute.self) { route in
                             routeDestination(route)
                         }
@@ -54,7 +60,7 @@ struct ContentView: View {
                 }
 
                 NavigationStack(path: $targetsPath) {
-                    TargetsView(repository: repository, onSpeciesClick: { taxonId in
+                    TargetsView(repository: repository, lifeListService: sharedLifeListService, onSpeciesClick: { taxonId in
                         targetsPath.append(AppRoute.speciesDetail(taxonId: taxonId))
                     })
                         .navigationDestination(for: AppRoute.self) { route in
@@ -80,7 +86,7 @@ struct ContentView: View {
                 }
 
                 NavigationStack(path: $settingsPath) {
-                    SettingsView(lifeListService: LifeListService(apiClient: INatApiClient()), repository: repository)
+                    SettingsView(lifeListService: sharedLifeListService, repository: repository)
                         .navigationDestination(for: AppRoute.self) { route in
                             routeDestination(route)
                         }
@@ -90,7 +96,7 @@ struct ContentView: View {
                     Label(AppTab.settings.label, systemImage: AppTab.settings.icon)
                 }
             }
-            .tint(.primary)
+            .tint(.appPrimary)
         }
     }
 
@@ -98,7 +104,7 @@ struct ContentView: View {
     private func routeDestination(_ route: AppRoute) -> some View {
         switch route {
         case .speciesDetail(let taxonId):
-            SpeciesDetailView(taxonId: taxonId, repository: repository)
+            SpeciesDetailView(taxonId: taxonId, repository: repository, lifeListService: lifeListService ?? LifeListService(apiClient: apiClient))
         case .addDataset:
             AddDatasetView(apiClient: apiClient, onGenerate: {
                 // Generation params are set by AddDatasetView before calling this
@@ -117,13 +123,17 @@ struct ContentView: View {
                 Text("No generation in progress").navigationTitle("Generating")
             }
         case .compare:
-            CompareView(repository: repository, onSpeciesClick: { _ in })
+            CompareView(repository: repository, lifeListService: lifeListService ?? LifeListService(apiClient: apiClient), onSpeciesClick: { taxonId in
+                navigateToRoute(.speciesDetail(taxonId: taxonId))
+            })
         case .help:
             HelpView()
         case .about:
             AboutView()
         case .timeline:
-            TimelineView(repository: repository, onSpeciesClick: { _ in })
+            TimelineView(repository: repository, onSpeciesClick: { taxonId in
+                navigateToRoute(.speciesDetail(taxonId: taxonId))
+            })
         case .tripReport:
             TripReportView(repository: repository)
         }

@@ -15,19 +15,13 @@ struct PhotoCarouselView: View {
                 TabView(selection: $currentPage) {
                     ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
                         ZStack(alignment: .bottomLeading) {
-                            if let url = repository.getPhotoURL(key: key, filename: photo.file) {
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                    default:
-                                        Color.gray.opacity(0.3)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .clipped()
+                            if let url = repository.getPhotoURL(key: key, filename: photo.file),
+                               let uiImage = UIImage(contentsOfFile: url.path) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .clipped()
                             } else {
                                 Color.gray.opacity(0.2)
                             }

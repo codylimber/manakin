@@ -130,7 +130,7 @@ struct GeneratingView: View {
             ToolbarItem(placement: .principal) {
                 Text("Generating Dataset")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
         }
     }
@@ -157,7 +157,7 @@ struct GeneratingView: View {
             // Progress bar
             if let progress = vm.progress, !vm.isComplete, vm.error == nil {
                 ProgressView(value: progress.total > 0 ? Double(progress.current) / Double(progress.total) : 0)
-                    .tint(.primary)
+                    .tint(.appPrimary)
 
                 Text(progress.message)
                     .font(.system(size: 13))
@@ -186,7 +186,7 @@ struct GeneratingView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.primary)
+                        .background(Color.appPrimary)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             } else if vm.error != nil {
@@ -207,7 +207,7 @@ struct GeneratingView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(Color.primary)
+                            .background(Color.appPrimary)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
@@ -221,7 +221,7 @@ struct GeneratingView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.primary)
+                        .background(Color.appPrimary)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
 
@@ -249,7 +249,7 @@ struct GeneratingView: View {
             if isComplete {
                 Image(systemName: "checkmark")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
                     .frame(width: 20, height: 20)
             } else if isActive {
                 ProgressView()
@@ -265,7 +265,7 @@ struct GeneratingView: View {
             Text(label)
                 .font(.system(size: 14, weight: isActive ? .semibold : .regular))
                 .foregroundColor(
-                    isComplete ? .primary :
+                    isComplete ? .appPrimary :
                     isActive ? colors.onBackground :
                     colors.onSurfaceVariant
                 )

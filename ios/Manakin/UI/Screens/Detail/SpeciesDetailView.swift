@@ -44,7 +44,7 @@ struct SpeciesDetailView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
         }
@@ -124,7 +124,7 @@ struct SpeciesDetailView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
         }
@@ -136,7 +136,7 @@ struct SpeciesDetailView: View {
                 if isObserved {
                     Image(systemName: "checkmark")
                         .font(.system(size: 18))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
                 let useSci = appSettings.useScientificNames
                 let headerName = useSci ? species.scientificName
@@ -161,7 +161,7 @@ struct SpeciesDetailView: View {
                 Text(subName)
                     .font(.system(size: 16))
                     .italic(!useSci)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
         }
     }
@@ -261,12 +261,12 @@ struct SpeciesDetailView: View {
                 } label: {
                     Text("View on iNat")
                         .font(.system(size: 13))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.primary.opacity(0.5), lineWidth: 1)
+                                .stroke(Color.appPrimary.opacity(0.5), lineWidth: 1)
                         )
                 }
 
@@ -281,12 +281,12 @@ struct SpeciesDetailView: View {
                 } label: {
                     Text("Observation Map")
                         .font(.system(size: 13))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.primary.opacity(0.5), lineWidth: 1)
+                                .stroke(Color.appPrimary.opacity(0.5), lineWidth: 1)
                         )
                 }
             }
@@ -299,12 +299,12 @@ struct SpeciesDetailView: View {
                 } label: {
                     Text("My Observations")
                         .font(.system(size: 13))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.primary.opacity(0.5), lineWidth: 1)
+                                .stroke(Color.appPrimary.opacity(0.5), lineWidth: 1)
                         )
                 }
             }

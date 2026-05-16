@@ -252,7 +252,7 @@ struct AddDatasetView: View {
                         if generationComplete {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 48))
-                                .foregroundColor(.primary)
+                                .foregroundColor(.appPrimary)
                             Text("Dataset Generated!")
                                 .font(.headline)
                                 .foregroundColor(.white)
@@ -260,7 +260,7 @@ struct AddDatasetView: View {
                                 dismiss()
                             }
                             .buttonStyle(.borderedProminent)
-                            .tint(.primary)
+                            .tint(.appPrimary)
                         } else if let error = generationError {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.system(size: 48))
@@ -277,7 +277,7 @@ struct AddDatasetView: View {
                         } else {
                             ProgressView()
                                 .scaleEffect(1.5)
-                                .tint(.primary)
+                                .tint(.appPrimary)
                             if let progress = generationProgress {
                                 Text(progress.message)
                                     .font(.subheadline)
@@ -303,13 +303,13 @@ struct AddDatasetView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
             ToolbarItem(placement: .principal) {
                 Text("Add Dataset")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
         }
     }
@@ -328,10 +328,10 @@ struct AddDatasetView: View {
                     } label: {
                         Text(vm.state.showAllPlaces ? "All Places" : "Regions Only")
                             .font(.system(size: 12))
-                            .foregroundColor(vm.state.showAllPlaces ? .primary : colors.onSurfaceVariant)
+                            .foregroundColor(vm.state.showAllPlaces ? .appPrimary : colors.onSurfaceVariant)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(vm.state.showAllPlaces ? Color.primary.opacity(0.15) : colors.surfaceVariant)
+                            .background(vm.state.showAllPlaces ? Color.appPrimary.opacity(0.15) : colors.surfaceVariant)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
@@ -378,10 +378,10 @@ struct AddDatasetView: View {
                                         .font(.system(size: 10))
                                 }
                             }
-                            .foregroundColor(.primary)
+                            .foregroundColor(.appPrimary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Color.primary.opacity(0.15))
+                            .background(Color.appPrimary.opacity(0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     }
@@ -436,10 +436,10 @@ struct AddDatasetView: View {
                                         .font(.system(size: 10))
                                 }
                             }
-                            .foregroundColor(.primary)
+                            .foregroundColor(.appPrimary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Color.primary.opacity(0.15))
+                            .background(Color.appPrimary.opacity(0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     }
@@ -470,7 +470,7 @@ struct AddDatasetView: View {
                         Text("Advanced Options")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
                 }
 
                 if vm.state.showAdvanced {
@@ -484,7 +484,7 @@ struct AddDatasetView: View {
                     HStack(spacing: 12) {
                         ProgressView()
                             .scaleEffect(0.8)
-                            .tint(.primary)
+                            .tint(.appPrimary)
                         Text("Estimating...")
                             .font(.system(size: 13))
                             .foregroundColor(colors.onSurfaceVariant)
@@ -496,7 +496,7 @@ struct AddDatasetView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Estimate")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.primary)
+                            .foregroundColor(.appPrimary)
                         let sizeStr: String = {
                             guard let mb = vm.state.estimatedSizeMb else { return "" }
                             return mb < 1 ? "< 1 MB" : "~\(Int(mb)) MB"
@@ -569,7 +569,7 @@ struct AddDatasetView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
                 }
-                .background(vm.state.canGenerate ? Color.primary : Color.gray)
+                .background(vm.state.canGenerate ? Color.appPrimary : Color.gray)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .disabled(!vm.state.canGenerate)
             }
@@ -628,16 +628,16 @@ struct AddDatasetView: View {
                 } label: {
                     Text("Choose File")
                         .font(.system(size: 13))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.5)))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.appPrimary.opacity(0.5)))
                 }
 
                 if let success = importSuccess {
                     Text(success ? "Dataset imported successfully!" : "Import failed. Check the file format.")
                         .font(.system(size: 12))
-                        .foregroundColor(success ? .primary : .red)
+                        .foregroundColor(success ? .appPrimary : .red)
                 }
             }
         }
@@ -649,10 +649,10 @@ struct AddDatasetView: View {
         } label: {
             Text(label)
                 .font(.system(size: 12))
-                .foregroundColor(vm.state.qualityGrade == value ? .primary : colors.onSurfaceVariant)
+                .foregroundColor(vm.state.qualityGrade == value ? .appPrimary : colors.onSurfaceVariant)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(vm.state.qualityGrade == value ? Color.primary.opacity(0.15) : colors.surfaceVariant)
+                .background(vm.state.qualityGrade == value ? Color.appPrimary.opacity(0.15) : colors.surfaceVariant)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)

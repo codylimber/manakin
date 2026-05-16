@@ -133,14 +133,14 @@ struct TimelineView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
             ToolbarItem(placement: .principal) {
                 VStack(spacing: 0) {
                     Text("This Week")
                         .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                     let label = selectedKeys.count == repository.getKeys().count
                         ? "All Datasets"
                         : selectedKeys.map { repository.getGroupName(key: $0) }.joined(separator: ", ")
@@ -177,17 +177,12 @@ struct TimelineView: View {
         let photoURL = sp.photos.first.flatMap { repository.getPhotoURL(key: event.key, filename: $0.file) }
 
         return HStack(spacing: 10) {
-            if let url = photoURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    default:
-                        Color.gray.opacity(0.3)
-                    }
-                }
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            if let url = photoURL, let uiImage = UIImage(contentsOfFile: url.path) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -231,7 +226,7 @@ struct TimelineView: View {
         switch type {
         case .enteredPeak: return ("Peak", .statusPeak)
         case .newlyActive: return ("Active", .statusActive)
-        case .approachingPeak: return ("Rising", .primary)
+        case .approachingPeak: return ("Rising", .appPrimary)
         case .leftPeak: return ("Declining", .statusEarlyLate)
         case .becameInactive: return ("Inactive", .statusInactive)
         case .lastChance: return ("Last Chance", .rarityRare)

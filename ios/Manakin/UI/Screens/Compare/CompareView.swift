@@ -74,13 +74,13 @@ struct CompareView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left")
-                        .foregroundColor(.primary)
+                        .foregroundColor(.appPrimary)
                 }
             }
             ToolbarItem(placement: .principal) {
                 Text("Compare")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
         }
         .onAppear {
@@ -136,7 +136,7 @@ struct CompareView: View {
                         title: "Only in \(repository.getGroupName(key: keyA)) \u{2014} \(repository.getPlaceNameForKey(key: keyA)) (\(filteredA.count))",
                         species: filteredA,
                         key: keyA,
-                        titleColor: .primary
+                        titleColor: .appPrimary
                     )
                 }
             }
@@ -160,7 +160,7 @@ struct CompareView: View {
                         title: "Only in \(repository.getGroupName(key: keyB)) \u{2014} \(repository.getPlaceNameForKey(key: keyB)) (\(filteredB.count))",
                         species: filteredB,
                         key: keyB,
-                        titleColor: .primary
+                        titleColor: .appPrimary
                     )
                 }
             }
@@ -189,7 +189,7 @@ struct CompareView: View {
                     .lineLimit(1)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.3)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.appPrimary.opacity(0.3)))
             }
             .frame(maxWidth: .infinity)
 
@@ -214,7 +214,7 @@ struct CompareView: View {
                     .lineLimit(1)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.3)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.appPrimary.opacity(0.3)))
             }
             .frame(maxWidth: .infinity)
             .disabled(compatibleKeysForB.isEmpty)
@@ -227,7 +227,7 @@ struct CompareView: View {
             summaryChip(
                 label: "Only \(repository.getPlaceNameForKey(key: keyA))",
                 count: onlyA.count,
-                color: .primary,
+                color: .appPrimary,
                 selected: viewMode == .onlyA
             ) {
                 viewMode = viewMode == .onlyA ? .all : .onlyA
@@ -245,7 +245,7 @@ struct CompareView: View {
             summaryChip(
                 label: "Only \(repository.getPlaceNameForKey(key: keyB))",
                 count: onlyB.count,
-                color: .primary,
+                color: .appPrimary,
                 selected: viewMode == .onlyB
             ) {
                 viewMode = viewMode == .onlyB ? .all : .onlyB
@@ -268,7 +268,7 @@ struct CompareView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(selected ? Color.primary.opacity(0.15) : Color.clear)
+            .background(selected ? Color.appPrimary.opacity(0.15) : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -294,10 +294,10 @@ struct CompareView: View {
         } label: {
             Text(label)
                 .font(.system(size: 12))
-                .foregroundColor(filterMode == value ? .primary : colors.onSurfaceVariant)
+                .foregroundColor(filterMode == value ? .appPrimary : colors.onSurfaceVariant)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(filterMode == value ? Color.primary.opacity(0.2) : colors.surfaceVariant)
+                .background(filterMode == value ? Color.appPrimary.opacity(0.2) : colors.surfaceVariant)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
@@ -313,7 +313,7 @@ struct CompareView: View {
             HStack(spacing: 2) {
                 Image(systemName: "arrow.up.arrow.down")
                     .font(.system(size: 10))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
         }
     }

@@ -28,6 +28,7 @@ final class SpeciesListViewModel {
     }
 
     var repository: PhenologyRepository?
+    var lifeListService: LifeListService?
     var datasets: [DatasetOption] = []
     var selectedKeys: Set<String> = []
     var sortMode: SortMode = AppSettings.shared.defaultSortMode
@@ -73,7 +74,22 @@ final class SpeciesListViewModel {
 
     func refresh() {
         loadDatasets()
+        loadObservedSpecies()
         updateSpeciesList()
+    }
+
+    func loadObservedSpecies() {
+        guard let service = lifeListService, service.hasUsername() else {
+            observedIds = []
+            hasLifeList = false
+            return
+        }
+        var allIds = Set<Int>()
+        for key in selectedKeys {
+            allIds.formUnion(service.getObservedForScope(datasetKey: key))
+        }
+        observedIds = allIds
+        hasLifeList = true
     }
 
     func toggleDataset(_ key: String) {
@@ -359,6 +375,8 @@ final class SpeciesListViewModel {
 // MARK: - Species List View
 
 struct SpeciesListView: View {
+    var lifeListService: LifeListService?
+
     @State private var viewModel = SpeciesListViewModel()
     @State private var showOotd = false
     @Environment(\.appColors) private var colors
@@ -382,7 +400,7 @@ struct SpeciesListView: View {
                             .resizable()
                             .frame(width: 28, height: 28)
                         Text("Manakin")
-                            .foregroundColor(.primary)
+                            .foregroundColor(.appPrimary)
                             .fontWeight(.bold)
                             .font(.system(size: 20))
                     }
@@ -403,7 +421,9 @@ struct SpeciesListView: View {
         }
         .onAppear {
             viewModel.repository = repository
+            viewModel.lifeListService = lifeListService
             viewModel.loadDatasets()
+            viewModel.loadObservedSpecies()
             viewModel.updateSpeciesList()
         }
     }
@@ -532,15 +552,15 @@ struct SpeciesListView: View {
             if parts.count > 1 {
                 Text(parts[0])
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
                 Text(parts[1])
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.primary.opacity(0.7))
+                    .foregroundColor(.appPrimary.opacity(0.7))
                     .padding(.leading, 8)
             } else {
                 Text(header)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
         }
         .padding(.top, isFirst ? 0 : 8)
@@ -551,7 +571,7 @@ struct SpeciesListView: View {
         VStack(spacing: 16) {
             Text("Organism of the Day")
                 .font(.headline)
-                .foregroundColor(.primary)
+                .foregroundColor(.appPrimary)
                 .fontWeight(.bold)
             if let ootd = viewModel.getOrganismOfTheDay() {
                 if let url = ootd.photoURL, let uiImage = UIImage(contentsOfFile: url.path) {
@@ -582,7 +602,7 @@ struct SpeciesListView: View {
                 Text("No active species found.")
             }
             Button("Close") { showOotd = false }
-                .foregroundColor(.primary)
+                .foregroundColor(.appPrimary)
         }
         .padding()
         .presentationDetents([.medium])
@@ -617,7 +637,7 @@ struct ActiveAllToggle: View {
                 .foregroundColor(isSelected ? .white : colors.onSurfaceVariant)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(isSelected ? Color.primary : Color.clear)
+                .background(isSelected ? Color.appPrimary : Color.clear)
                 .clipShape(Capsule())
         }
     }
@@ -650,7 +670,7 @@ struct SortDropdown: View {
         } label: {
             Text(label)
                 .font(.system(size: 13))
-                .foregroundColor(.primary)
+                .foregroundColor(.appPrimary)
         }
     }
 
@@ -693,7 +713,7 @@ struct DateChipView: View {
             Button { showDatePicker = true } label: {
                 Text(label)
                     .font(.system(size: 13))
-                    .foregroundColor(isCustomDate ? .primary : colors.onSurfaceVariant)
+                    .foregroundColor(isCustomDate ? .appPrimary : colors.onSurfaceVariant)
             }
             if isCustomDate {
                 Button { onReset() } label: {

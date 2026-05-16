@@ -2,7 +2,7 @@ import SwiftUI
 
 extension Color {
     // Core palette - natural green scheme
-    static let primary = Color(hex: 0x4CAF50)
+    static let appPrimary = Color(hex: 0x4CAF50)
     static let primaryLight = Color(hex: 0x66BB6A)
     static let primaryDark = Color(hex: 0x388E3C)
     static let accent = Color(hex: 0x81C784)

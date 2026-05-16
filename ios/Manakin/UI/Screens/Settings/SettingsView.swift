@@ -75,7 +75,7 @@ struct SettingsView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background((!isSyncing && !username.trimmingCharacters(in: .whitespaces).isEmpty) ? Color.primary : Color.gray)
+                    .background((!isSyncing && !username.trimmingCharacters(in: .whitespaces).isEmpty) ? Color.appPrimary : Color.gray)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .disabled(isSyncing || username.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -83,7 +83,7 @@ struct SettingsView: View {
                 if let msg = syncMessage {
                     Text(msg)
                         .font(.system(size: 13))
-                        .foregroundColor(msg.hasPrefix("Sync failed") ? .red : .primary)
+                        .foregroundColor(msg.hasPrefix("Sync failed") ? .red : .appPrimary)
                 }
 
                 // Appearance
@@ -93,7 +93,7 @@ struct SettingsView: View {
                     get: { themeManager.isDarkMode },
                     set: { themeManager.isDarkMode = $0 }
                 ))
-                .tint(.primary)
+                .tint(.appPrimary)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Toggle(isOn: Binding(
@@ -108,7 +108,7 @@ struct SettingsView: View {
                                 .foregroundColor(colors.onSurfaceVariant)
                         }
                     }
-                    .tint(.primary)
+                    .tint(.appPrimary)
                 }
 
                 // Min activity
@@ -120,7 +120,7 @@ struct SettingsView: View {
                         Spacer()
                         Text("\(appSettings.minActivityPercent)%")
                             .font(.system(size: 15))
-                            .foregroundColor(.primary)
+                            .foregroundColor(.appPrimary)
                     }
                     Text("Hide species below this activity threshold")
                         .font(.system(size: 12))
@@ -133,7 +133,7 @@ struct SettingsView: View {
                         in: 0...50,
                         step: 5
                     )
-                    .tint(.primary)
+                    .tint(.appPrimary)
                 }
 
                 // Default sort
@@ -169,7 +169,7 @@ struct SettingsView: View {
                                 .foregroundColor(colors.onSurfaceVariant)
                         }
                     }
-                    .tint(.primary)
+                    .tint(.appPrimary)
                 }
 
                 if appSettings.weeklyDigestEnabled {
@@ -189,7 +189,7 @@ struct SettingsView: View {
                                 .foregroundColor(colors.onSurfaceVariant)
                         }
                     }
-                    .tint(.primary)
+                    .tint(.appPrimary)
                 }
 
                 // Notification dataset filter
@@ -215,7 +215,7 @@ struct SettingsView: View {
             ToolbarItem(placement: .principal) {
                 Text("Settings")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appPrimary)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 AppOverflowMenu()
@@ -230,7 +230,7 @@ struct SettingsView: View {
         HStack(spacing: 12) {
             Image(systemName: "person.fill")
                 .font(.system(size: 24))
-                .foregroundColor(.primary)
+                .foregroundColor(.appPrimary)
             VStack(alignment: .leading) {
                 Text(username)
                     .font(.system(size: 16, weight: .semibold))
@@ -250,7 +250,7 @@ struct SettingsView: View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 16))
-                .foregroundColor(.primary)
+                .foregroundColor(.appPrimary)
             Text(title)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(colors.onBackground)
@@ -263,10 +263,10 @@ struct SettingsView: View {
         } label: {
             Text(label)
                 .font(.system(size: 12))
-                .foregroundColor(appSettings.defaultSortMode == mode ? .primary : colors.onSurfaceVariant)
+                .foregroundColor(appSettings.defaultSortMode == mode ? .appPrimary : colors.onSurfaceVariant)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(appSettings.defaultSortMode == mode ? Color.primary.opacity(0.2) : colors.surfaceVariant)
+                .background(appSettings.defaultSortMode == mode ? Color.appPrimary.opacity(0.2) : colors.surfaceVariant)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -297,10 +297,10 @@ struct SettingsView: View {
                     } label: {
                         Text(day)
                             .font(.system(size: 11))
-                            .foregroundColor(isSelected ? .primary : colors.onSurfaceVariant)
+                            .foregroundColor(isSelected ? .appPrimary : colors.onSurfaceVariant)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 4)
-                            .background(isSelected ? Color.primary.opacity(0.2) : colors.surfaceVariant)
+                            .background(isSelected ? Color.appPrimary.opacity(0.2) : colors.surfaceVariant)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
@@ -345,10 +345,10 @@ struct SettingsView: View {
                                     .font(.system(size: 10))
                                     .foregroundColor(colors.onSurfaceVariant)
                             }
-                            .foregroundColor(isSelected ? .primary : colors.onSurfaceVariant)
+                            .foregroundColor(isSelected ? .appPrimary : colors.onSurfaceVariant)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(isSelected ? Color.primary.opacity(0.2) : colors.surfaceVariant)
+                            .background(isSelected ? Color.appPrimary.opacity(0.2) : colors.surfaceVariant)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                         .buttonStyle(.plain)
@@ -373,10 +373,10 @@ struct SettingsView: View {
                 } label: {
                     Text(label)
                         .font(.system(size: 12))
-                        .foregroundColor(widgetMode == value ? .primary : colors.onSurfaceVariant)
+                        .foregroundColor(widgetMode == value ? .appPrimary : colors.onSurfaceVariant)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(widgetMode == value ? Color.primary.opacity(0.2) : colors.surfaceVariant)
+                        .background(widgetMode == value ? Color.appPrimary.opacity(0.2) : colors.surfaceVariant)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
@@ -429,7 +429,7 @@ struct SettingsView: View {
             }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .foregroundColor(.primary)
+                .foregroundColor(.appPrimary)
         }
     }
 }
