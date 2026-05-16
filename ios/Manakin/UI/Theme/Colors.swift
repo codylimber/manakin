@@ -16,9 +16,9 @@ extension Color {
     static let darkOnSurfaceDim = Color(hex: 0x888888)
 
     // Light theme
-    static let lightBackground = Color(hex: 0xF5F5F5)
+    static let lightBackground = Color(hex: 0xF0F0F0)
     static let lightSurface = Color(hex: 0xFFFFFF)
-    static let lightSurfaceVariant = Color(hex: 0xE8E8E8)
+    static let lightSurfaceVariant = Color(hex: 0xE0E0E0)
     static let lightOnBackground = Color(hex: 0x1A1A1A)
     static let lightOnSurface = Color(hex: 0x333333)
     static let lightOnSurfaceDim = Color(hex: 0x777777)

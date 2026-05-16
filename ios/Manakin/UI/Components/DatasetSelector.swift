@@ -43,12 +43,9 @@ struct DatasetSelector: View {
 
             ForEach(datasets) { item in
                 Button {
-                    onSelectSingle(item.key)
+                    onToggle(item.key)
                 } label: {
-                    HStack {
-                        if selectedKeys.contains(item.key) {
-                            Image(systemName: "checkmark")
-                        }
+                    Label {
                         VStack(alignment: .leading) {
                             Text(item.group)
                                 .fontWeight(selectedKeys.contains(item.key) ? .bold : .regular)
@@ -56,6 +53,8 @@ struct DatasetSelector: View {
                                 .font(.caption)
                                 .foregroundColor(colors.onSurfaceVariant)
                         }
+                    } icon: {
+                        Image(systemName: selectedKeys.contains(item.key) ? "checkmark.circle.fill" : "circle")
                     }
                 }
             }

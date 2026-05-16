@@ -19,6 +19,12 @@ struct CompareView: View {
     @State private var sortMode: SortMode = AppSettings.shared.defaultSortMode
     @State private var filterMode: String = "ALL"
 
+    @State private var cachedSpeciesA: [Int: Species] = [:]
+    @State private var cachedSpeciesB: [Int: Species] = [:]
+    @State private var cachedOnlyA: [Int: Species] = [:]
+    @State private var cachedOnlyB: [Int: Species] = [:]
+    @State private var cachedShared: [Int: Species] = [:]
+
     private var currentWeek: Int {
         Calendar.current.component(.weekOfYear, from: Date())
     }
@@ -40,24 +46,14 @@ struct CompareView: View {
         return Set(keys.flatMap { service.getObservedForScope(datasetKey: $0) })
     }
 
-    private var speciesA: [Int: Species] {
-        Dictionary(uniqueKeysWithValues: repository.getSpeciesForKey(key: keyA).map { ($0.taxonId, $0) })
-    }
-
-    private var speciesB: [Int: Species] {
-        Dictionary(uniqueKeysWithValues: repository.getSpeciesForKey(key: keyB).map { ($0.taxonId, $0) })
-    }
-
-    private var onlyA: [Int: Species] {
-        speciesA.filter { !speciesB.keys.contains($0.key) }
-    }
-
-    private var onlyB: [Int: Species] {
-        speciesB.filter { !speciesA.keys.contains($0.key) }
-    }
-
-    private var shared: [Int: Species] {
-        speciesA.filter { speciesB.keys.contains($0.key) }
+    private func recomputeSpecies() {
+        let a = Dictionary(uniqueKeysWithValues: repository.getSpeciesForKey(key: keyA).map { ($0.taxonId, $0) })
+        let b = Dictionary(uniqueKeysWithValues: repository.getSpeciesForKey(key: keyB).map { ($0.taxonId, $0) })
+        cachedSpeciesA = a
+        cachedSpeciesB = b
+        cachedOnlyA = a.filter { !b.keys.contains($0.key) }
+        cachedOnlyB = b.filter { !a.keys.contains($0.key) }
+        cachedShared = a.filter { b.keys.contains($0.key) }
     }
 
     var body: some View {
@@ -86,11 +82,16 @@ struct CompareView: View {
         .onAppear {
             if keyA.isEmpty { keyA = keys.first ?? "" }
             if keyB.isEmpty { keyB = compatibleKeysForB.first ?? "" }
+            recomputeSpecies()
         }
         .onChange(of: keyA) { _, _ in
             if !compatibleKeysForB.contains(keyB) {
                 keyB = compatibleKeysForB.first ?? ""
             }
+            recomputeSpecies()
+        }
+        .onChange(of: keyB) { _, _ in
+            recomputeSpecies()
         }
     }
 
@@ -130,7 +131,7 @@ struct CompareView: View {
 
             // Species sections
             if viewMode == .all || viewMode == .onlyA {
-                let filteredA = filterSpecies(Array(onlyA.values))
+                let filteredA = filterSpecies(Array(cachedOnlyA.values))
                 if !filteredA.isEmpty {
                     speciesSection(
                         title: "Only in \(repository.getGroupName(key: keyA)) \u{2014} \(repository.getPlaceNameForKey(key: keyA)) (\(filteredA.count))",
@@ -142,7 +143,7 @@ struct CompareView: View {
             }
 
             if viewMode == .all || viewMode == .shared {
-                let filteredShared = filterSpecies(Array(shared.values))
+                let filteredShared = filterSpecies(Array(cachedShared.values))
                 if !filteredShared.isEmpty {
                     speciesSection(
                         title: "In both (\(filteredShared.count))",
@@ -154,7 +155,7 @@ struct CompareView: View {
             }
 
             if viewMode == .all || viewMode == .onlyB {
-                let filteredB = filterSpecies(Array(onlyB.values))
+                let filteredB = filterSpecies(Array(cachedOnlyB.values))
                 if !filteredB.isEmpty {
                     speciesSection(
                         title: "Only in \(repository.getGroupName(key: keyB)) \u{2014} \(repository.getPlaceNameForKey(key: keyB)) (\(filteredB.count))",
@@ -226,7 +227,7 @@ struct CompareView: View {
             Spacer()
             summaryChip(
                 label: "Only \(repository.getPlaceNameForKey(key: keyA))",
-                count: onlyA.count,
+                count: cachedOnlyA.count,
                 color: .appPrimary,
                 selected: viewMode == .onlyA
             ) {
@@ -235,7 +236,7 @@ struct CompareView: View {
             Spacer()
             summaryChip(
                 label: "Shared",
-                count: shared.count,
+                count: cachedShared.count,
                 color: colors.onSurfaceVariant,
                 selected: viewMode == .shared
             ) {
@@ -244,7 +245,7 @@ struct CompareView: View {
             Spacer()
             summaryChip(
                 label: "Only \(repository.getPlaceNameForKey(key: keyB))",
-                count: onlyB.count,
+                count: cachedOnlyB.count,
                 color: .appPrimary,
                 selected: viewMode == .onlyB
             ) {

@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var username: String = ""
     @State private var isSyncing = false
     @State private var syncMessage: String?
+    @AppStorage("widget_mode") private var widgetMode: String = "top_active"
 
     private var lastSyncText: String {
         let lastSync = lifeListService.getLastSyncTime()
@@ -367,9 +368,8 @@ struct SettingsView: View {
         ]
         return HStack(spacing: 6) {
             ForEach(modes, id: \.0) { value, label in
-                let widgetMode = UserDefaults.standard.string(forKey: "widget_mode") ?? "top_active"
                 Button {
-                    UserDefaults.standard.set(value, forKey: "widget_mode")
+                    widgetMode = value
                 } label: {
                     Text(label)
                         .font(.system(size: 12))

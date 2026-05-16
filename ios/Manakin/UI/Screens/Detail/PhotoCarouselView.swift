@@ -16,7 +16,7 @@ struct PhotoCarouselView: View {
                     ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
                         ZStack(alignment: .bottomLeading) {
                             if let url = repository.getPhotoURL(key: key, filename: photo.file),
-                               let uiImage = UIImage(contentsOfFile: url.path) {
+                               let uiImage = ImageCache.shared.image(for: url.path) {
                                 Image(uiImage: uiImage)
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)

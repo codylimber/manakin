@@ -30,6 +30,9 @@ struct TargetsView: View {
     @Environment(AppSettings.self) private var appSettings
 
     @State private var sortMode: SortMode = AppSettings.shared.defaultSortMode
+    @State private var cachedAllSpecies: [TargetSpecies] = []
+    @State private var cachedDisplayed: [TargetSpecies] = []
+    @State private var cachedGrouped: [(String, [TargetSpecies])] = []
 
     private var currentWeek: Int {
         Calendar.current.component(.weekOfYear, from: Date())
@@ -52,7 +55,7 @@ struct TargetsView: View {
         lifeListService?.hasUsername() == true
     }
 
-    private var allSpecies: [TargetSpecies] {
+    private func computeAllSpecies() -> [TargetSpecies] {
         var list: [TargetSpecies] = []
         var seen: Set<Int> = []
         for key in keys {
@@ -78,7 +81,7 @@ struct TargetsView: View {
         return Set(keys.flatMap { service.getObservedLocal(datasetKey: $0) })
     }
 
-    private var displayed: [TargetSpecies] {
+    private func computeDisplayed(allSpecies: [TargetSpecies]) -> [TargetSpecies] {
         var filtered: [TargetSpecies]
         switch mode {
         case .starred:
@@ -120,6 +123,13 @@ struct TargetsView: View {
                 return a < b
             }
         }
+    }
+
+    private func recompute() {
+        cachedAllSpecies = computeAllSpecies()
+        cachedDisplayed = computeDisplayed(allSpecies: cachedAllSpecies)
+        let grouped = Dictionary(grouping: cachedDisplayed, by: { $0.groupName })
+        cachedGrouped = grouped.keys.sorted().map { ($0, grouped[$0]!) }
     }
 
     private func statusOrder(_ s: SpeciesStatus) -> Int {
@@ -166,7 +176,7 @@ struct TargetsView: View {
             // Count + sort
             Section {
                 HStack {
-                    Text("\(displayed.count) species")
+                    Text("\(cachedDisplayed.count) species")
                         .font(.system(size: 12))
                         .foregroundColor(colors.onSurfaceVariant)
                     Spacer()
@@ -176,22 +186,20 @@ struct TargetsView: View {
             .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
             .listRowBackground(Color.clear)
 
-            if displayed.isEmpty {
+            if cachedDisplayed.isEmpty {
                 Section {
                     emptyStateMessage
                 }
                 .listRowBackground(Color.clear)
             } else {
-                // Group by dataset
-                let grouped = Dictionary(grouping: displayed, by: { $0.groupName })
-                ForEach(grouped.keys.sorted(), id: \.self) { group in
+                ForEach(cachedGrouped, id: \.0) { group, targets in
                     Section {
                         Text(group)
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.appPrimary)
                             .listRowBackground(Color.clear)
 
-                        ForEach(grouped[group] ?? [], id: \.species.taxonId) { target in
+                        ForEach(targets, id: \.species.taxonId) { target in
                             let photoURL = target.species.photos.first.flatMap {
                                 repository.getPhotoURL(key: target.key, filename: $0.file)
                             }
@@ -221,6 +229,12 @@ struct TargetsView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(colors.background)
+        .onAppear { recompute() }
+        .onChange(of: appSettings.targetMode) { _, _ in recompute() }
+        .onChange(of: appSettings.selectedDatasetKeys) { _, _ in recompute() }
+        .onChange(of: appSettings.showActiveOnly) { _, _ in recompute() }
+        .onChange(of: appSettings.favorites) { _, _ in recompute() }
+        .onChange(of: sortMode) { _, _ in recompute() }
         .navigationTitle("")
         .toolbar {
             ToolbarItem(placement: .principal) {

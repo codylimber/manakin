@@ -177,7 +177,7 @@ struct TimelineView: View {
         let photoURL = sp.photos.first.flatMap { repository.getPhotoURL(key: event.key, filename: $0.file) }
 
         return HStack(spacing: 10) {
-            if let url = photoURL, let uiImage = UIImage(contentsOfFile: url.path) {
+            if let url = photoURL, let uiImage = ImageCache.shared.image(for: url.path) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)

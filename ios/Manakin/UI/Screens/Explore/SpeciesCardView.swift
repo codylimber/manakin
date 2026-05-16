@@ -54,6 +54,14 @@ struct SpeciesCardView: View {
 
             // Card content
             cardContent
+                .contextMenu {
+                    ShareLink("Share iNat Link", item: iNatURL)
+                    Button {
+                        UIPasteboard.general.url = iNatURL
+                    } label: {
+                        Label("Copy Link", systemImage: "doc.on.doc")
+                    }
+                }
                 .offset(x: swipeOffset)
                 .highPriorityGesture(
                     DragGesture(minimumDistance: 30, coordinateSpace: .local)
@@ -181,11 +189,12 @@ struct SpeciesCardView: View {
         .padding(12)
         .background(colors.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.08), radius: 2, x: 0, y: 1)
     }
 
     private var thumbnailView: some View {
         Group {
-            if let url = photoURL, let uiImage = UIImage(contentsOfFile: url.path) {
+            if let url = photoURL, let uiImage = ImageCache.shared.image(for: url.path) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -195,5 +204,9 @@ struct SpeciesCardView: View {
         }
         .frame(width: 56, height: 56)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var iNatURL: URL {
+        URL(string: "https://www.inaturalist.org/taxa/\(species.taxonId)")!
     }
 }

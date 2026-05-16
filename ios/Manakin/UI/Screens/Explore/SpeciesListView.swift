@@ -574,7 +574,7 @@ struct SpeciesListView: View {
                 .foregroundColor(.appPrimary)
                 .fontWeight(.bold)
             if let ootd = viewModel.getOrganismOfTheDay() {
-                if let url = ootd.photoURL, let uiImage = UIImage(contentsOfFile: url.path) {
+                if let url = ootd.photoURL, let uiImage = ImageCache.shared.image(for: url.path) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .aspectRatio(contentMode: .fill)

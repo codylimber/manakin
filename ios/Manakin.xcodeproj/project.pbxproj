@@ -22,6 +22,7 @@
 		515CB8A7AD34A000ABF41669 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCB2D6BAE466AE42D6D9A590 /* ContentView.swift */; };
 		51D4037C5EBF93C4549A57AB /* PhenologyChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5333223D770154F0D6905E /* PhenologyChart.swift */; };
 		5A2339176D6F596C1F0A0E03 /* manakin_logo.png in Resources */ = {isa = PBXBuildFile; fileRef = 59C6076B2308970064849B15 /* manakin_logo.png */; };
+		5A1B2C3D4E5F6A7B8C9D0E1F /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7A8B9C0D1E2F /* ImageCache.swift */; };
 		64126377AFB325545469B903 /* GeneratingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B800F965019C0508956F63F /* GeneratingView.swift */; };
 		646DFDEF21B9CD52FA38EBA8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8063CF99A78B79589532EE9C /* SettingsView.swift */; };
 		6ECAFAB7B4C3D5667D3A8766 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 299DC78A1F15B603989997A7 /* NotificationManager.swift */; };
@@ -52,6 +53,7 @@
 		19A77FB1CCFB44BDC42138E5 /* Dataset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dataset.swift; sourceTree = "<group>"; };
 		23FFAEFFEE7D6863788C3452 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		25D616DFE900B31132863BF3 /* TripReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripReportView.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7A8B9C0D1E2F /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		26BEB478CD7B3DDB872A8739 /* DatasetGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatasetGenerator.swift; sourceTree = "<group>"; };
 		299DC78A1F15B603989997A7 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		29DD2F3CC001C8DA721DAA73 /* ManageDatasetsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageDatasetsView.swift; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 			isa = PBXGroup;
 			children = (
 				39131CF6E59510D3C1F60DB5 /* DatasetSelector.swift */,
+				1A2B3C4D5E6F7A8B9C0D1E2F /* ImageCache.swift */,
 				76DA6047B1232266D9BBCC68 /* MiniBarChart.swift */,
 				0F5333223D770154F0D6905E /* PhenologyChart.swift */,
 				39E5C23A0E013411A70A315E /* StatusBadge.swift */,
@@ -440,6 +443,7 @@
 				C7234311CA099751B3138037 /* OnboardingView.swift in Sources */,
 				51D4037C5EBF93C4549A57AB /* PhenologyChart.swift in Sources */,
 				F0811127836AE3C15998C254 /* PhenologyRepository.swift in Sources */,
+				5A1B2C3D4E5F6A7B8C9D0E1F /* ImageCache.swift in Sources */,
 				7CD9AF7DB2278BE1C0ED4C1D /* PhotoCarouselView.swift in Sources */,
 				646DFDEF21B9CD52FA38EBA8 /* SettingsView.swift in Sources */,
 				D1D912B5D7ECCE5C72424DEC /* SpeciesCardView.swift in Sources */,
