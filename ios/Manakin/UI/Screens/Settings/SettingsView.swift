@@ -16,8 +16,6 @@ struct SettingsView: View {
     @State private var username: String = ""
     @State private var isSyncing = false
     @State private var syncMessage: String?
-    @AppStorage("widget_mode") private var widgetMode: String = "top_active"
-
     private var lastSyncText: String {
         let lastSync = lifeListService.getLastSyncTime()
         if lastSync > 0 {
@@ -198,14 +196,6 @@ struct SettingsView: View {
                     notificationDatasetFilter
                 }
 
-                // Widget mode
-                sectionHeader(icon: "square.grid.2x2.fill", title: "Home Screen Widget")
-                Text("Choose what the widget displays. Long-press your home screen to add the Manakin widget.")
-                    .font(.system(size: 13))
-                    .foregroundColor(colors.onSurfaceVariant)
-
-                widgetModeSelector
-
                 Spacer().frame(height: 32)
             }
             .padding(16)
@@ -355,31 +345,6 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
                 }
-            }
-        }
-    }
-
-    private var widgetModeSelector: some View {
-        let modes: [(String, String)] = [
-            ("top_active", "Top Active"),
-            ("organism_of_day", "Species of Day"),
-            ("timeline", "This Week"),
-            ("targets", "Targets")
-        ]
-        return HStack(spacing: 6) {
-            ForEach(modes, id: \.0) { value, label in
-                Button {
-                    widgetMode = value
-                } label: {
-                    Text(label)
-                        .font(.system(size: 12))
-                        .foregroundColor(widgetMode == value ? .appPrimary : colors.onSurfaceVariant)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(widgetMode == value ? Color.appPrimary.opacity(0.2) : colors.surfaceVariant)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .buttonStyle(.plain)
             }
         }
     }
