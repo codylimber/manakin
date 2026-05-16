@@ -14,6 +14,7 @@
 		0CF9E14554478755AE2A3A8B /* SpeciesDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9D57EA3582112ED7BBF7BCA /* SpeciesDetailView.swift */; };
 		0ED0DC35E9AFB16182F7AC38 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E5BB1C26722812FB98EB0F9 /* TimelineView.swift */; };
 		1112FDDDE76285333462F158 /* LifeListService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD819D8A31EBDBE894B27FC5 /* LifeListService.swift */; };
+		1D8F3751213247AC8C2279ED /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 23FFAEFFEE7D6863788C3452 /* Assets.xcassets */; };
 		22A6A027AE7A74CEEA1A8220 /* INatApiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59520258EA80005AAFF80934 /* INatApiClient.swift */; };
 		276D8A431D9C8DB4A56FAB71 /* DataProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92DB1B94A51588F055B938D3 /* DataProcessor.swift */; };
 		44BFED4576905F30B885874D /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9AA37BD7427BF3BA280ABBD /* AppNavigation.swift */; };
@@ -49,6 +50,7 @@
 		0F5333223D770154F0D6905E /* PhenologyChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhenologyChart.swift; sourceTree = "<group>"; };
 		17359050E62BCF988AE7B058 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		19A77FB1CCFB44BDC42138E5 /* Dataset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dataset.swift; sourceTree = "<group>"; };
+		23FFAEFFEE7D6863788C3452 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		25D616DFE900B31132863BF3 /* TripReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripReportView.swift; sourceTree = "<group>"; };
 		26BEB478CD7B3DDB872A8739 /* DatasetGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatasetGenerator.swift; sourceTree = "<group>"; };
 		299DC78A1F15B603989997A7 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
@@ -214,6 +216,7 @@
 		875668E3DD59DD129A80F4F8 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				23FFAEFFEE7D6863788C3452 /* Assets.xcassets */,
 				59C6076B2308970064849B15 /* manakin_logo.png */,
 			);
 			path = Resources;
@@ -379,6 +382,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1D8F3751213247AC8C2279ED /* Assets.xcassets in Resources */,
 				5A2339176D6F596C1F0A0E03 /* manakin_logo.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

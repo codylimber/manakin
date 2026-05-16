@@ -22,16 +22,15 @@ targets:
     sources:
       - path: Manakin
         excludes:
-          - "**/*.xcassets"
           - "Resources/datasets/**"
           - "Resources/Sounds/**"
     resources:
-      - path: Manakin/Resources/Assets.xcassets
       - path: Manakin/Resources/datasets
         buildPhase: resources
         type: folder
       - path: Manakin/Resources/Sounds
         buildPhase: resources
+        type: folder
     settings:
       base:
         GENERATE_INFOPLIST_FILE: true

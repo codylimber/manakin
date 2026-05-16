@@ -399,11 +399,9 @@ struct SpeciesListView: View {
             organismOfTheDaySheet
         }
         .onAppear {
-            if viewModel.repository == nil {
-                viewModel.repository = repository
-                viewModel.loadDatasets()
-                viewModel.updateSpeciesList()
-            }
+            viewModel.repository = repository
+            viewModel.loadDatasets()
+            viewModel.updateSpeciesList()
         }
     }
 

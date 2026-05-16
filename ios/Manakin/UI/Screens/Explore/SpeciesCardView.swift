@@ -55,9 +55,11 @@ struct SpeciesCardView: View {
             // Card content
             cardContent
                 .offset(x: swipeOffset)
-                .gesture(
-                    DragGesture()
+                .highPriorityGesture(
+                    DragGesture(minimumDistance: 30, coordinateSpace: .local)
                         .onChanged { value in
+                            // Only activate for horizontal swipes
+                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
                             let newOffset = value.translation.width
                             swipeOffset = max(0, min(newOffset, swipeThreshold * 1.5))
                         }
