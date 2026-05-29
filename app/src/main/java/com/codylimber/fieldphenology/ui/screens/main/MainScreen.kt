@@ -39,6 +39,8 @@ import com.codylimber.fieldphenology.ui.navigation.Routes
 import com.codylimber.fieldphenology.ui.screens.about.AboutScreen
 import com.codylimber.fieldphenology.ui.screens.adddataset.AddDatasetScreen
 import com.codylimber.fieldphenology.ui.screens.compare.CompareScreen
+import com.codylimber.fieldphenology.ui.screens.lifelist.GenerateLifeListScreen
+import com.codylimber.fieldphenology.ui.screens.lifelist.LifeListScreen
 import com.codylimber.fieldphenology.ui.screens.generating.GeneratingScreen
 import com.codylimber.fieldphenology.ui.screens.help.HelpScreen
 import com.codylimber.fieldphenology.ui.screens.onboarding.OnboardingScreen
@@ -174,6 +176,7 @@ fun MainScreen(
                     onTimeline = menuCallbacks.onTimeline,
                     onTripReport = menuCallbacks.onTripReport,
                     onCompare = menuCallbacks.onCompare,
+                    onLifeList = menuCallbacks.onLifeList,
                     onHelp = menuCallbacks.onHelp,
                     onAbout = menuCallbacks.onAbout,
                     lifeListService = lifeListService
@@ -186,7 +189,7 @@ fun MainScreen(
                     lifeListService = lifeListService,
                     onSpeciesClick = { navController.navigate(Routes.speciesDetail(it)) },
                     onTimeline = mc.onTimeline, onTripReport = mc.onTripReport,
-                    onCompare = mc.onCompare, onHelp = mc.onHelp, onAbout = mc.onAbout
+                    onCompare = mc.onCompare, onLifeList = mc.onLifeList, onHelp = mc.onHelp, onAbout = mc.onAbout
                 )
             }
             composable(Routes.MANAGE_DATASETS) {
@@ -216,7 +219,7 @@ fun MainScreen(
                         }
                     },
                     onTimeline = mc.onTimeline, onTripReport = mc.onTripReport,
-                    onCompare = mc.onCompare, onHelp = mc.onHelp, onAbout = mc.onAbout
+                    onCompare = mc.onCompare, onLifeList = mc.onLifeList, onHelp = mc.onHelp, onAbout = mc.onAbout
                 )
             }
             composable(Routes.SETTINGS) {
@@ -225,7 +228,7 @@ fun MainScreen(
                     lifeListService = lifeListService,
                     repository = repository,
                     onTimeline = mc.onTimeline, onTripReport = mc.onTripReport,
-                    onCompare = mc.onCompare, onHelp = mc.onHelp, onAbout = mc.onAbout
+                    onCompare = mc.onCompare, onLifeList = mc.onLifeList, onHelp = mc.onHelp, onAbout = mc.onAbout
                 )
             }
 
@@ -296,6 +299,34 @@ fun MainScreen(
                     onSpeciesClick = { navController.navigate(Routes.speciesDetail(it)) }
                 )
             }
+            composable(Routes.LIFE_LIST) {
+                LifeListScreen(
+                    lifeListService = lifeListService,
+                    onBack = { navController.popBackStack() },
+                    onGenerate = { navController.navigate(Routes.GENERATE_LIFE_LIST) },
+                    onUpdate = { list ->
+                        navController.navigate(Routes.generateLifeListUpdate(list.taxonId, list.taxonName))
+                    }
+                )
+            }
+            composable(
+                route = Routes.GENERATE_LIFE_LIST_ROUTE,
+                arguments = listOf(
+                    navArgument("taxonId") { type = NavType.IntType; defaultValue = -1 },
+                    navArgument("taxonName") { type = NavType.StringType; defaultValue = "" }
+                )
+            ) { backStackEntry ->
+                val taxonId = backStackEntry.arguments?.getInt("taxonId")?.takeIf { it != -1 }
+                val taxonName = backStackEntry.arguments?.getString("taxonName")?.takeIf { it.isNotEmpty() }
+                GenerateLifeListScreen(
+                    apiClient = apiClient,
+                    lifeListService = lifeListService,
+                    onBack = { navController.popBackStack() },
+                    onGenerated = { navController.popBackStack() },
+                    initialTaxonId = taxonId,
+                    initialTaxonName = taxonName
+                )
+            }
             composable(Routes.HELP) {
                 HelpScreen(
                     onBack = { navController.popBackStack() },
@@ -333,6 +364,7 @@ private data class MenuCallbacks(
     val onTimeline: () -> Unit,
     val onTripReport: () -> Unit,
     val onCompare: () -> Unit,
+    val onLifeList: () -> Unit,
     val onHelp: () -> Unit,
     val onAbout: () -> Unit
 )
@@ -341,6 +373,7 @@ private fun menuNavCallbacks(navController: NavHostController) = MenuCallbacks(
     onTimeline = { navController.navigate(Routes.TIMELINE) },
     onTripReport = { navController.navigate(Routes.TRIP_REPORT) },
     onCompare = { navController.navigate(Routes.COMPARE) },
+    onLifeList = { navController.navigate(Routes.LIFE_LIST) },
     onHelp = { navController.navigate(Routes.HELP) },
     onAbout = { navController.navigate(Routes.ABOUT) }
 )

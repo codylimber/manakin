@@ -44,7 +44,10 @@ data class AddDatasetState(
                 else placeResults.filter { it.adminLevel != null }
 
     val canGenerate: Boolean
-        get() = selectedPlaces.isNotEmpty() && groupLabel.isNotBlank()
+        get() = selectedPlaces.isNotEmpty() && selectedTaxons.isNotEmpty() && groupLabel.isNotBlank()
+
+    val isLargeDataset: Boolean
+        get() = (estimatedSizeMb ?: 0.0) >= 500.0
 
     val estimatedSizeMb: Double?
         get() {

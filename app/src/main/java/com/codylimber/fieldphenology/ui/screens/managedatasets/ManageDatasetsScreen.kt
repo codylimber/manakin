@@ -38,6 +38,7 @@ fun ManageDatasetsScreen(
     onTimeline: (() -> Unit)? = null,
     onTripReport: (() -> Unit)? = null,
     onCompare: (() -> Unit)? = null,
+    onLifeList: (() -> Unit)? = null,
     onHelp: (() -> Unit)? = null,
     onAbout: (() -> Unit)? = null
 ) {
@@ -72,7 +73,7 @@ fun ManageDatasetsScreen(
                     }
                 },
                 actions = {
-                    com.codylimber.fieldphenology.ui.screens.specieslist.AppOverflowMenu(onTimeline = onTimeline, onTripReport = onTripReport, onCompare = onCompare, onHelp = onHelp, onAbout = onAbout)
+                    com.codylimber.fieldphenology.ui.screens.specieslist.AppOverflowMenu(onTimeline = onTimeline, onTripReport = onTripReport, onCompare = onCompare, onLifeList = onLifeList, onHelp = onHelp, onAbout = onAbout)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background

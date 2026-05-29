@@ -71,15 +71,7 @@ fun CompareScreen(
     val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     val hasLifeList = lifeListService?.hasUsername() == true
 
-    // Filter keyB to same taxon group as keyA
-    val compatibleKeysForB = keys.filter { repository.getTaxonGroup(it) == repository.getTaxonGroup(keyA) && it != keyA }
-
-    // Auto-correct keyB when keyA changes
-    LaunchedEffect(keyA) {
-        if (keyB !in compatibleKeysForB) {
-            keyB = compatibleKeysForB.firstOrNull() ?: ""
-        }
-    }
+    val compatibleKeysForB = keys.filter { it != keyA }
     val observedIds = remember(keys) {
         if (lifeListService == null || !hasLifeList) emptySet()
         else keys.flatMap { lifeListService.getObservedForScope(it) }.toSet()

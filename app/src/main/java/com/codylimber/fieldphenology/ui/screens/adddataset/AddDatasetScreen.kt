@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -137,7 +138,13 @@ fun AddDatasetScreen(
             Spacer(modifier = Modifier.height(4.dp))
 
             // Taxon search
-            Text("Taxa (optional)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("Taxa", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Required — e.g. Birds, Butterflies, Odonata. Limits the dataset to a specific group.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+            )
             ExposedDropdownMenuBox(
                 expanded = state.showTaxonDropdown && state.taxonResults.isNotEmpty(),
                 onExpandedChange = { }
@@ -339,6 +346,33 @@ fun AddDatasetScreen(
                 }
             }
 
+            // Large dataset warning
+            if (state.isLargeDataset) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(18.dp).padding(top = 1.dp)
+                        )
+                        Text(
+                            "This dataset may exceed 500 MB. Consider selecting a smaller region or narrowing the taxa to reduce download size and generation time.",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(4.dp))
 
             // Generate button
@@ -347,10 +381,8 @@ fun AddDatasetScreen(
                     val places = state.selectedPlaces
                     val taxons = state.selectedTaxons
                     val placeName = places.joinToString(", ") { it.name }
-                    val taxonName = if (taxons.isEmpty()) "All Species"
-                        else taxons.joinToString(", ") { it.commonName.ifEmpty { it.scientificName } }
-                    val taxonIds = if (taxons.isEmpty()) listOf(null)
-                        else taxons.map { it.id }
+                    val taxonName = taxons.joinToString(", ") { it.commonName.ifEmpty { it.scientificName } }
+                    val taxonIds = taxons.map { it.id }
 
                     GenerationParams.current = GenerationParams(
                         placeIds = places.map { it.id },

@@ -41,6 +41,7 @@ fun SettingsScreen(
     onTimeline: (() -> Unit)? = null,
     onTripReport: (() -> Unit)? = null,
     onCompare: (() -> Unit)? = null,
+    onLifeList: (() -> Unit)? = null,
     onHelp: (() -> Unit)? = null,
     onAbout: (() -> Unit)? = null
 ) {
@@ -66,7 +67,7 @@ fun SettingsScreen(
                     }
                 },
                 actions = {
-                    com.codylimber.fieldphenology.ui.screens.specieslist.AppOverflowMenu(onTimeline = onTimeline, onTripReport = onTripReport, onCompare = onCompare, onHelp = onHelp, onAbout = onAbout)
+                    com.codylimber.fieldphenology.ui.screens.specieslist.AppOverflowMenu(onTimeline = onTimeline, onTripReport = onTripReport, onCompare = onCompare, onLifeList = onLifeList, onHelp = onHelp, onAbout = onAbout)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
@@ -150,12 +151,14 @@ fun SettingsScreen(
                                 val meta = dataset.metadata
                                 lifeListService.refreshForDataset(
                                     datasetKey = key,
-                                    taxonId = null, // fetch all observed within the taxon group
+                                    taxonId = null,
                                     placeId = meta.placeId
                                 )
                             }
                             syncMessage = "Synced ${keys.size} dataset(s) successfully!"
-                        } catch (e: Exception) {
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Throwable) {
                             syncMessage = "Sync failed: ${e.message}"
                         } finally {
                             isSyncing = false

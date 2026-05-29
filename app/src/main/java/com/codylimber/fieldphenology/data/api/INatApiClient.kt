@@ -284,4 +284,74 @@ class INatApiClient(private val client: OkHttpClient) {
         }
         return allIds
     }
+    suspend fun getUserLifeListForTaxon(
+        username: String,
+        taxonId: Int,
+        onProgress: (fetched: Int, total: Int) -> Unit = { _, _ -> }
+    ): List<com.codylimber.fieldphenology.data.model.LifeListEntry> {
+        val firstSeen = mutableMapOf<Int, String>()
+        val lastSeen = mutableMapOf<Int, String>()
+        val taxonNames = mutableMapOf<Int, Pair<String, String>>() // tid -> (common, scientific)
+        var page = 1
+        val maxPage = 50
+        while (page <= maxPage) {
+            val params = mutableMapOf(
+                "user_id" to username,
+                "taxon_id" to taxonId.toString(),
+                "quality_grade" to "research",
+                "order_by" to "observed_on",
+                "order" to "asc",
+                "page" to page.toString(),
+                "per_page" to "200"
+            )
+            val data = get("observations", params, useCache = false)
+            val totalResults = data["total_results"]?.jsonPrimitive?.intOrNull ?: 0
+            if (totalResults == 0) break
+            val results = try { data["results"]?.jsonArray } catch (_: Exception) { null } ?: break
+            if (results.isEmpty()) break
+            for (r in results) {
+                val obj = try { r.jsonObject } catch (_: Exception) { continue }
+                val taxon = obj["taxon"]?.jsonObject ?: continue
+                val tid = taxon["id"]?.jsonPrimitive?.intOrNull ?: continue
+                val date = obj["observed_on"]?.jsonPrimitive?.contentOrNull ?: continue
+                if (!firstSeen.containsKey(tid)) {
+                    firstSeen[tid] = date
+                    val common = taxon["preferred_common_name"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val scientific = taxon["name"]?.jsonPrimitive?.contentOrNull ?: ""
+                    taxonNames[tid] = Pair(common, scientific)
+                }
+                lastSeen[tid] = date
+            }
+            onProgress(firstSeen.size, totalResults)
+            if (page * 200 >= totalResults) break
+            page++
+        }
+
+        // Batch-fetch taxon details from /taxa endpoint to get reliable photo URLs
+        val photoUrls = mutableMapOf<Int, String?>()
+        val allIds = firstSeen.keys.toList()
+        allIds.chunked(30).forEach { chunk ->
+            try {
+                val taxaResults = getTaxaDetails(chunk)
+                for (t in taxaResults) {
+                    val tid = t["id"]?.jsonPrimitive?.intOrNull ?: continue
+                    val photo = t["default_photo"]?.jsonObject
+                    photoUrls[tid] = photo?.get("medium_url")?.jsonPrimitive?.contentOrNull
+                        ?: photo?.get("url")?.jsonPrimitive?.contentOrNull
+                }
+            } catch (_: Exception) { /* leave nulls */ }
+        }
+
+        return firstSeen.keys.map { tid ->
+            val (common, scientific) = taxonNames[tid] ?: Pair("", "")
+            com.codylimber.fieldphenology.data.model.LifeListEntry(
+                taxonId = tid,
+                commonName = common,
+                scientificName = scientific,
+                firstObservedDate = firstSeen[tid]!!,
+                lastObservedDate = lastSeen[tid] ?: firstSeen[tid]!!,
+                photoUrl = photoUrls[tid]
+            )
+        }
+    }
 }

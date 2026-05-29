@@ -14,6 +14,11 @@ object Routes {
     const val TARGETS = "targets"
     const val TIMELINE = "timeline"
     const val TRIP_REPORT = "trip_report"
+    const val LIFE_LIST = "life_list"
+    const val GENERATE_LIFE_LIST = "generate_life_list"
+    const val GENERATE_LIFE_LIST_ROUTE = "generate_life_list?taxonId={taxonId}&taxonName={taxonName}"
 
     fun speciesDetail(taxonId: Int) = "species_detail/$taxonId"
+    fun generateLifeListUpdate(taxonId: Int, taxonName: String) =
+        "generate_life_list?taxonId=$taxonId&taxonName=${java.net.URLEncoder.encode(taxonName, "UTF-8")}"
 }

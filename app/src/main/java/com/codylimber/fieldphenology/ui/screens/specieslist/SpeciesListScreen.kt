@@ -45,6 +45,7 @@ fun SpeciesListScreen(
     onTimeline: () -> Unit = {},
     onTripReport: () -> Unit = {},
     onCompare: () -> Unit = {},
+    onLifeList: () -> Unit = {},
     onHelp: () -> Unit = {},
     onAbout: () -> Unit = {},
     lifeListService: LifeListService? = null,
@@ -77,7 +78,7 @@ fun SpeciesListScreen(
                         showAll = state.showAllSpecies,
                         onToggle = { viewModel.setShowAllSpecies(it) }
                     )
-                    AppOverflowMenu(onTimeline = onTimeline, onTripReport = onTripReport, onCompare = onCompare, onHelp = onHelp, onAbout = onAbout)
+                    AppOverflowMenu(onTimeline = onTimeline, onTripReport = onTripReport, onCompare = onCompare, onLifeList = onLifeList, onHelp = onHelp, onAbout = onAbout)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
@@ -231,6 +232,7 @@ fun AppOverflowMenu(
     onTimeline: (() -> Unit)? = null,
     onTripReport: (() -> Unit)? = null,
     onCompare: (() -> Unit)? = null,
+    onLifeList: (() -> Unit)? = null,
     onHelp: (() -> Unit)? = null,
     onAbout: (() -> Unit)? = null
 ) {
@@ -242,6 +244,7 @@ fun AppOverflowMenu(
         if (onTimeline != null) DropdownMenuItem(text = { Text("This Week") }, onClick = { showMenu = false; onTimeline() })
         if (onTripReport != null) DropdownMenuItem(text = { Text("Trip Report") }, onClick = { showMenu = false; onTripReport() })
         if (onCompare != null) DropdownMenuItem(text = { Text("Compare Locations") }, onClick = { showMenu = false; onCompare() })
+        if (onLifeList != null) DropdownMenuItem(text = { Text("Life List") }, onClick = { showMenu = false; onLifeList() })
         if (onHelp != null) DropdownMenuItem(text = { Text("Help") }, onClick = { showMenu = false; onHelp() })
         if (onAbout != null) DropdownMenuItem(text = { Text("About") }, onClick = { showMenu = false; onAbout() })
     }

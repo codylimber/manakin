@@ -88,3 +88,28 @@ enum class SortMode {
 enum class ObservationFilter {
     ALL, OBSERVED, NOT_OBSERVED, FAVORITES
 }
+
+@Serializable
+data class LifeListEntry(
+    val taxonId: Int,
+    val commonName: String = "",
+    val scientificName: String = "",
+    val firstObservedDate: String,
+    val lastObservedDate: String,
+    val photoUrl: String? = null
+)
+
+@Serializable
+data class SavedLifeList(
+    val taxonId: Int,
+    val taxonName: String,
+    val generatedAt: String,
+    val entries: List<LifeListEntry>
+)
+
+enum class LifeListSortMode {
+    RECENTLY_ADDED,
+    RECENTLY_SEEN,
+    TAXONOMY,
+    NAME
+}
