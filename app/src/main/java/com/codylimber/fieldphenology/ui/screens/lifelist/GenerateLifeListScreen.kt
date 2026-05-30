@@ -1,9 +1,11 @@
 package com.codylimber.fieldphenology.ui.screens.lifelist
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -23,7 +25,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun GenerateLifeListScreen(
     apiClient: INatApiClient,
@@ -33,17 +35,19 @@ fun GenerateLifeListScreen(
     initialTaxonId: Int? = null,
     initialTaxonName: String? = null
 ) {
-    val initialTaxon = if (initialTaxonId != null && initialTaxonName != null)
-        TaxonResult(initialTaxonId, initialTaxonName, "", "", "")
-    else null
+    val isUpdate = initialTaxonId != null && initialTaxonName != null
+    val initialTaxons = if (isUpdate)
+        listOf(TaxonResult(initialTaxonId!!, initialTaxonName!!, "", "", ""))
+    else emptyList()
 
-    var query by remember { mutableStateOf(initialTaxonName ?: "") }
+    var query by remember { mutableStateOf("") }
     var suggestions by remember { mutableStateOf<List<TaxonResult>>(emptyList()) }
-    var selectedTaxon by remember { mutableStateOf<TaxonResult?>(initialTaxon) }
+    var selectedTaxons by remember { mutableStateOf<List<TaxonResult>>(initialTaxons) }
     var isSearching by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
     var progressFetched by remember { mutableStateOf(0) }
     var progressTotal by remember { mutableStateOf(0) }
+    var currentTaxonLabel by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
@@ -52,7 +56,7 @@ fun GenerateLifeListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (initialTaxon != null) "Update Life List" else "Generate Life List", color = Primary, fontWeight = FontWeight.Bold) },
+                title = { Text(if (isUpdate) "Update Life List" else "Generate Life List", color = Primary, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack, enabled = !isGenerating) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Primary)
@@ -66,22 +70,49 @@ fun GenerateLifeListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                "Search for a taxon (e.g. Birds, Butterflies, Odonata) to generate a life list from your iNaturalist observations.",
+                "Search for taxa (e.g. Birds, Butterflies, Odonata). Add multiple for paraphyletic groups.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            if (selectedTaxon == null) {
-                // Taxon search field
+            // Selected taxon chips
+            if (selectedTaxons.isNotEmpty()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    selectedTaxons.forEach { taxon ->
+                        InputChip(
+                            selected = true,
+                            onClick = {},
+                            label = { Text(taxon.displayName, fontSize = 13.sp) },
+                            trailingIcon = {
+                                if (!isGenerating) {
+                                    IconButton(
+                                        onClick = { selectedTaxons = selectedTaxons.filter { it.id != taxon.id } },
+                                        modifier = Modifier.size(18.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, "Remove", modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                            },
+                            colors = InputChipDefaults.inputChipColors(
+                                selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                selectedLabelColor = Primary
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Taxon search field
+            if (!isGenerating) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { q ->
                         query = q
-                        selectedTaxon = null
                         if (q.length >= 2) {
                             searchJob?.cancel()
                             searchJob = coroutineScope.launch {
@@ -89,6 +120,7 @@ fun GenerateLifeListScreen(
                                 isSearching = true
                                 try {
                                     suggestions = apiClient.searchTaxa(q)
+                                        .filter { t -> selectedTaxons.none { it.id == t.id } }
                                 } catch (_: Exception) {
                                     suggestions = emptyList()
                                 } finally {
@@ -108,7 +140,7 @@ fun GenerateLifeListScreen(
                         }
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { /* handled by debounce */ }),
+                    keyboardActions = KeyboardActions(onSearch = { }),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
                     modifier = Modifier.fillMaxWidth()
@@ -117,34 +149,15 @@ fun GenerateLifeListScreen(
                 // Suggestions
                 suggestions.forEach { taxon ->
                     OutlinedButton(
-                        onClick = { selectedTaxon = taxon; query = taxon.displayName; suggestions = emptyList() },
+                        onClick = {
+                            selectedTaxons = selectedTaxons + taxon
+                            query = ""
+                            suggestions = emptyList()
+                        },
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(taxon.displayName, modifier = Modifier.fillMaxWidth(), fontSize = 14.sp)
-                    }
-                }
-            } else {
-                // Selected taxon chip
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Primary.copy(alpha = 0.1f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(selectedTaxon!!.displayName, fontWeight = FontWeight.SemiBold, color = Primary)
-                            Text("Taxon ID: ${selectedTaxon!!.id}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (!isGenerating) {
-                            IconButton(onClick = { selectedTaxon = null; query = "" }) {
-                                Icon(Icons.Default.Close, "Clear", tint = Primary)
-                            }
-                        }
                     }
                 }
             }
@@ -157,6 +170,9 @@ fun GenerateLifeListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     CircularProgressIndicator(color = Primary)
+                    if (currentTaxonLabel.isNotEmpty()) {
+                        Text(currentTaxonLabel, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     if (progressTotal > 0) {
                         Text(
                             "$progressFetched of $progressTotal species fetched…",
@@ -167,19 +183,27 @@ fun GenerateLifeListScreen(
                         Text("Fetching observations…", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-            } else if (selectedTaxon != null) {
+            } else if (selectedTaxons.isNotEmpty()) {
                 Button(
                     onClick = {
-                        val taxon = selectedTaxon ?: return@Button
                         isGenerating = true
                         errorMessage = null
                         progressFetched = 0
                         progressTotal = 0
                         coroutineScope.launch {
                             try {
+                                val ids = selectedTaxons.map { it.id }
+                                val names = selectedTaxons.map { it.displayName }
                                 lifeListService.generateLifeList(
-                                    taxonId = taxon.id,
-                                    taxonName = taxon.displayName
+                                    taxonIds = ids,
+                                    taxonNames = names,
+                                    onTaxonStart = { idx ->
+                                        currentTaxonLabel = if (ids.size > 1)
+                                            "Fetching ${names[idx]} (${idx + 1}/${ids.size})…"
+                                        else ""
+                                        progressFetched = 0
+                                        progressTotal = 0
+                                    }
                                 ) { fetched, total ->
                                     progressFetched = fetched
                                     progressTotal = total
@@ -198,7 +222,7 @@ fun GenerateLifeListScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Primary),
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
-                    Text(if (initialTaxon != null) "Update Life List" else "Generate Life List")
+                    Text(if (isUpdate) "Update Life List" else "Generate Life List")
                 }
             }
 

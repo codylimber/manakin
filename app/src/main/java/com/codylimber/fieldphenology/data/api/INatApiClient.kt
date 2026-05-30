@@ -327,30 +327,86 @@ class INatApiClient(private val client: OkHttpClient) {
             page++
         }
 
-        // Batch-fetch taxon details from /taxa endpoint to get reliable photo URLs
+        // Batch-fetch taxon details from /taxa endpoint to get reliable photo URLs,
+        // resolve subspecies/varieties up to species rank, and drop anything above species.
         val photoUrls = mutableMapOf<Int, String?>()
+        val speciesNames = mutableMapOf<Int, Pair<String, String>>() // resolved species id -> (common, sci)
+        // Maps raw observed tid -> resolved species tid (same if already species)
+        val resolvedId = mutableMapOf<Int, Int>()
+
+        val subSpeciesRanks = setOf("subspecies", "variety", "form", "infrahybrid", "hybrid")
+        val speciesRank = "species"
+
         val allIds = firstSeen.keys.toList()
         allIds.chunked(30).forEach { chunk ->
             try {
                 val taxaResults = getTaxaDetails(chunk)
                 for (t in taxaResults) {
                     val tid = t["id"]?.jsonPrimitive?.intOrNull ?: continue
+                    val rank = t["rank"]?.jsonPrimitive?.contentOrNull ?: continue
+
+                    val targetId: Int
+                    val targetName: Pair<String, String>
+
+                    if (rank == speciesRank) {
+                        targetId = tid
+                        val common = t["preferred_common_name"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val sci = t["name"]?.jsonPrimitive?.contentOrNull ?: ""
+                        targetName = Pair(common, sci)
+                    } else if (rank in subSpeciesRanks) {
+                        // Find species-rank ancestor
+                        val ancestors = try { t["ancestors"]?.jsonArray } catch (_: Exception) { null }
+                        val speciesAncestor = ancestors?.mapNotNull { a ->
+                            try { a.jsonObject } catch (_: Exception) { null }
+                        }?.lastOrNull { a ->
+                            a["rank"]?.jsonPrimitive?.contentOrNull == speciesRank
+                        }
+                        if (speciesAncestor == null) continue // can't resolve, skip
+                        targetId = speciesAncestor["id"]?.jsonPrimitive?.intOrNull ?: continue
+                        val common = speciesAncestor["preferred_common_name"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val sci = speciesAncestor["name"]?.jsonPrimitive?.contentOrNull ?: ""
+                        targetName = Pair(common, sci)
+                    } else {
+                        continue // above species rank — skip
+                    }
+
+                    resolvedId[tid] = targetId
+                    if (!speciesNames.containsKey(targetId)) {
+                        speciesNames[targetId] = targetName
+                    }
+
                     val photo = t["default_photo"]?.jsonObject
-                    photoUrls[tid] = photo?.get("medium_url")?.jsonPrimitive?.contentOrNull
-                        ?: photo?.get("url")?.jsonPrimitive?.contentOrNull
+                    if (!photoUrls.containsKey(targetId)) {
+                        photoUrls[targetId] = photo?.get("medium_url")?.jsonPrimitive?.contentOrNull
+                            ?: photo?.get("url")?.jsonPrimitive?.contentOrNull
+                    }
                 }
             } catch (_: Exception) { /* leave nulls */ }
         }
 
-        return firstSeen.keys.map { tid ->
-            val (common, scientific) = taxonNames[tid] ?: Pair("", "")
+        // Aggregate dates by resolved species ID
+        val speciesFirstSeen = mutableMapOf<Int, String>()
+        val speciesLastSeen = mutableMapOf<Int, String>()
+        for ((rawId, date) in firstSeen) {
+            val sid = resolvedId[rawId] ?: continue
+            val existing = speciesFirstSeen[sid]
+            if (existing == null || date < existing) speciesFirstSeen[sid] = date
+        }
+        for ((rawId, date) in lastSeen) {
+            val sid = resolvedId[rawId] ?: continue
+            val existing = speciesLastSeen[sid]
+            if (existing == null || date > existing) speciesLastSeen[sid] = date
+        }
+
+        return speciesFirstSeen.keys.map { sid ->
+            val (common, scientific) = speciesNames[sid] ?: Pair("", "")
             com.codylimber.fieldphenology.data.model.LifeListEntry(
-                taxonId = tid,
+                taxonId = sid,
                 commonName = common,
                 scientificName = scientific,
-                firstObservedDate = firstSeen[tid]!!,
-                lastObservedDate = lastSeen[tid] ?: firstSeen[tid]!!,
-                photoUrl = photoUrls[tid]
+                firstObservedDate = speciesFirstSeen[sid]!!,
+                lastObservedDate = speciesLastSeen[sid] ?: speciesFirstSeen[sid]!!,
+                photoUrl = photoUrls[sid]
             )
         }
     }

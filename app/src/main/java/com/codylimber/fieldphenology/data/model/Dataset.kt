@@ -101,11 +101,15 @@ data class LifeListEntry(
 
 @Serializable
 data class SavedLifeList(
-    val taxonId: Int,
-    val taxonName: String,
+    val taxonId: Int,                        // primary taxon (kept for back-compat file naming)
+    val taxonName: String,                   // auto-generated display name
     val generatedAt: String,
-    val entries: List<LifeListEntry>
-)
+    val entries: List<LifeListEntry>,
+    val taxonIds: List<Int> = listOf(taxonId), // all taxa for multi-taxon lists
+    val customName: String? = null            // user-set rename, overrides taxonName in UI
+) {
+    val displayName: String get() = customName?.takeIf { it.isNotBlank() } ?: taxonName
+}
 
 enum class LifeListSortMode {
     RECENTLY_ADDED,

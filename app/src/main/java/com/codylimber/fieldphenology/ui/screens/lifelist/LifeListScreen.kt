@@ -11,13 +11,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
@@ -51,8 +56,10 @@ fun LifeListScreen(
 
     val current = detailList
     if (current != null) {
+        // Reflect any rename that happened while viewing detail
+        val live = savedLists.find { it.taxonId == current.taxonId } ?: current
         LifeListDetailScreen(
-            lifeList = current,
+            lifeList = live,
             onBack = { detailList = null }
         )
     } else {
@@ -66,7 +73,11 @@ fun LifeListScreen(
                 lifeListService.deleteLifeList(list.taxonId)
                 savedLists = lifeListService.getSavedLifeLists()
             },
-            onUpdate = onUpdate
+            onUpdate = onUpdate,
+            onRename = { list, newName ->
+                lifeListService.renameLifeList(list.taxonId, newName)
+                savedLists = lifeListService.getSavedLifeLists()
+            }
         )
     }
 }
@@ -80,10 +91,13 @@ private fun LifeListIndexScreen(
     onGenerate: () -> Unit,
     onOpen: (SavedLifeList) -> Unit,
     onDelete: (SavedLifeList) -> Unit,
-    onUpdate: (SavedLifeList) -> Unit
+    onUpdate: (SavedLifeList) -> Unit,
+    onRename: (SavedLifeList, String) -> Unit
 ) {
     val bottomPadding = LocalBottomPadding.current
     var deleteTarget by remember { mutableStateOf<SavedLifeList?>(null) }
+    var renameTarget by remember { mutableStateOf<SavedLifeList?>(null) }
+    var renameText by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -150,7 +164,7 @@ private fun LifeListIndexScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(list.taxonName, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                Text(list.displayName, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                                 Text(
                                     "${list.entries.size} species · ${formatFileSize(lifeListService.getLifeListFileSize(list.taxonId))}",
                                     fontSize = 12.sp,
@@ -161,6 +175,9 @@ private fun LifeListIndexScreen(
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                            IconButton(onClick = { renameTarget = list; renameText = list.displayName }) {
+                                Icon(Icons.Default.Edit, "Rename", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             IconButton(onClick = { onUpdate(list) }) {
                                 Icon(Icons.Default.Refresh, "Update", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -179,7 +196,7 @@ private fun LifeListIndexScreen(
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("Delete Life List") },
-            text = { Text("Delete your \"${target.taxonName}\" life list? This only removes it from Manakin — your iNaturalist observations are unchanged.") },
+            text = { Text("Delete your \"${target.displayName}\" life list? This only removes it from Manakin — your iNaturalist observations are unchanged.") },
             confirmButton = {
                 TextButton(onClick = { onDelete(target); deleteTarget = null }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
@@ -187,6 +204,34 @@ private fun LifeListIndexScreen(
             },
             dismissButton = {
                 TextButton(onClick = { deleteTarget = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    renameTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text("Rename Life List") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { onRename(target, renameText); renameTarget = null },
+                    enabled = renameText.isNotBlank()
+                ) {
+                    Text("Rename", color = Primary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameTarget = null }) { Text("Cancel") }
             }
         )
     }
@@ -199,6 +244,9 @@ private fun LifeListDetailScreen(
     onBack: () -> Unit
 ) {
     var sortMode by remember { mutableStateOf(LifeListSortMode.RECENTLY_ADDED) }
+    var searchQuery by remember { mutableStateOf("") }
+    var showSearch by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
     val bottomPadding = LocalBottomPadding.current
     val context = LocalContext.current
 
@@ -216,32 +264,83 @@ private fun LifeListDetailScreen(
         }
     }
 
+    val displayed = remember(sorted, searchQuery) {
+        if (searchQuery.isBlank()) sorted
+        else {
+            val q = searchQuery.trim().lowercase()
+            sorted.filter {
+                it.commonName.lowercase().contains(q) || it.scientificName.lowercase().contains(q)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(lifeList.taxonName, color = Primary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("${lifeList.entries.size} species", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Primary)
-                    }
-                },
-                actions = {
-                    LifeListSortDropdown(sortMode) { sortMode = it }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
+            if (showSearch) {
+                TopAppBar(
+                    title = {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search…", fontSize = 15.sp) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(24.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            ),
+                            trailingIcon = if (searchQuery.isNotEmpty()) {
+                                { IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, "Clear") }
+                                }
+                            } else null,
+                            modifier = Modifier.fillMaxWidth().padding(end = 8.dp).focusRequester(focusRequester)
+                        )
+                        LaunchedEffect(Unit) { focusRequester.requestFocus() }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { showSearch = false; searchQuery = "" }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Primary)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                )
+            } else {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(lifeList.displayName, color = Primary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text("${lifeList.entries.size} species", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Primary)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { showSearch = true }) {
+                            Icon(Icons.Default.Search, "Search", tint = Primary)
+                        }
+                        LifeListSortDropdown(sortMode) { sortMode = it }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                )
+            }
         }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)
         ) {
-            items(sorted, key = { it.taxonId }) { entry ->
+            if (displayed.isEmpty() && searchQuery.isNotBlank()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text("No results for \"$searchQuery\"", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            items(displayed, key = { it.taxonId }) { entry ->
                 LifeListEntryRow(
                     entry = entry,
                     sortMode = sortMode,

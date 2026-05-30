@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,11 +64,11 @@ fun CompareScreen(
         return
     }
 
-    var keyA by remember { mutableStateOf(keys.getOrNull(0) ?: "") }
-    var keyB by remember { mutableStateOf(keys.getOrNull(1) ?: "") }
+    var keyA by rememberSaveable { mutableStateOf(keys.getOrNull(0) ?: "") }
+    var keyB by rememberSaveable { mutableStateOf(keys.getOrNull(1) ?: "") }
     var expandedA by remember { mutableStateOf(false) }
     var expandedB by remember { mutableStateOf(false) }
-    var viewMode by remember { mutableStateOf(CompareViewMode.ALL) }
+    var viewMode by rememberSaveable { mutableStateOf(CompareViewMode.ALL) }
     val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     val hasLifeList = lifeListService?.hasUsername() == true
 
@@ -76,8 +77,8 @@ fun CompareScreen(
         if (lifeListService == null || !hasLifeList) emptySet()
         else keys.flatMap { lifeListService.getObservedForScope(it) }.toSet()
     }
-    var sortMode by remember { mutableStateOf(AppSettings.defaultSortMode) }
-    var filterMode by remember { mutableStateOf("ALL") } // ALL, UNSEEN, STARRED
+    var sortMode by rememberSaveable { mutableStateOf(AppSettings.defaultSortMode) }
+    var filterMode by rememberSaveable { mutableStateOf("ALL") } // ALL, UNSEEN, STARRED
 
     fun filterSpecies(species: Collection<Species>): List<Species> {
         var list = species.toList()

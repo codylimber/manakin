@@ -61,21 +61,53 @@ class LifeListService(
     // --- Life List generation ---
 
     suspend fun generateLifeList(
-        taxonId: Int,
-        taxonName: String,
+        taxonIds: List<Int>,
+        taxonNames: List<String>,
+        onTaxonStart: (index: Int) -> Unit = {},
         onProgress: (fetched: Int, total: Int) -> Unit = { _, _ -> }
     ): SavedLifeList {
         val user = username
         if (user.isBlank()) throw IllegalStateException("No iNaturalist username set.")
-        val entries = apiClient.getUserLifeListForTaxon(user, taxonId, onProgress)
+        val allEntries = mutableMapOf<Int, com.codylimber.fieldphenology.data.model.LifeListEntry>()
+        for ((index, tid) in taxonIds.withIndex()) {
+            onTaxonStart(index)
+            val entries = apiClient.getUserLifeListForTaxon(user, tid, onProgress)
+            for (e in entries) {
+                val existing = allEntries[e.taxonId]
+                if (existing == null) {
+                    allEntries[e.taxonId] = e
+                } else {
+                    // Merge: keep earliest first-seen, latest last-seen
+                    allEntries[e.taxonId] = existing.copy(
+                        firstObservedDate = minOf(existing.firstObservedDate, e.firstObservedDate),
+                        lastObservedDate = maxOf(existing.lastObservedDate, e.lastObservedDate)
+                    )
+                }
+            }
+        }
+        val combinedName = taxonNames.joinToString(" + ")
+        val primaryId = taxonIds.first()
         val lifeList = SavedLifeList(
-            taxonId = taxonId,
-            taxonName = taxonName,
+            taxonId = primaryId,
+            taxonName = combinedName,
             generatedAt = LocalDate.now().toString(),
-            entries = entries
+            entries = allEntries.values.toList(),
+            taxonIds = taxonIds
         )
         saveLifeList(lifeList)
         return lifeList
+    }
+
+    // Convenience for single-taxon
+    suspend fun generateLifeList(
+        taxonId: Int,
+        taxonName: String,
+        onProgress: (fetched: Int, total: Int) -> Unit = { _, _ -> }
+    ): SavedLifeList = generateLifeList(listOf(taxonId), listOf(taxonName), onProgress = onProgress)
+
+    fun renameLifeList(taxonId: Int, newName: String) {
+        val list = getLifeList(taxonId) ?: return
+        saveLifeList(list.copy(customName = newName.takeIf { it.isNotBlank() }))
     }
 
     fun getSavedLifeLists(): List<SavedLifeList> {
