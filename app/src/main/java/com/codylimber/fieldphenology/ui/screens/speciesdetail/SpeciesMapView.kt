@@ -59,7 +59,11 @@ fun SpeciesMapView(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    Configuration.getInstance().userAgentValue = context.packageName
+    Configuration.getInstance().apply {
+        userAgentValue = context.packageName
+        osmdroidTileCache = java.io.File(context.cacheDir, "osmdroid")
+        tileFileSystemCacheMaxBytes = 50L * 1024 * 1024 // 50MB tile cache
+    }
 
     // Global heatmap — no place_id filter so worldwide observations show
     val inatTileSource = remember(taxonId) {
@@ -71,7 +75,7 @@ fun SpeciesMapView(
                 val z = MapTileIndex.getZoom(pMapTileIndex)
                 val x = MapTileIndex.getX(pMapTileIndex)
                 val y = MapTileIndex.getY(pMapTileIndex)
-                return "https://api.inaturalist.org/v1/colored_heatmap/$z/$x/$y.png?taxon_id=$taxonId&color=%2300cc00"
+                return "https://api.inaturalist.org/v1/colored_heatmap/$z/$x/$y.png?taxon_id=$taxonId&color=%23e8000d"
             }
         }
     }
