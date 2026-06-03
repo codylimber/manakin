@@ -14,6 +14,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.MapTileProviderBasic
+import org.osmdroid.tileprovider.modules.MapTileApproximater
 import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
@@ -88,7 +89,12 @@ fun SpeciesMapView(
             controller.setCenter(GeoPoint(39.5, -98.35))
             setTileSource(TileSourceFactory.MAPNIK)
 
-            val inatProvider = MapTileProviderBasic(context, inatTileSource)
+            // Disable tile approximation for the iNat overlay — without this, OSMDroid
+            // stretches tiles from adjacent zoom levels while correct tiles load,
+            // causing the giant blurry blob effect when zooming.
+            val inatProvider = MapTileProviderBasic(context, inatTileSource).apply {
+                tileRequestCompleteHandlers.removeIf { it is MapTileApproximater }
+            }
             val inatOverlay = TilesOverlay(inatProvider, context).apply {
                 loadingBackgroundColor = android.graphics.Color.TRANSPARENT
                 loadingLineColor = android.graphics.Color.TRANSPARENT
