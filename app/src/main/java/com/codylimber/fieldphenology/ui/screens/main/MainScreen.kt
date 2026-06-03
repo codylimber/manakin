@@ -49,6 +49,7 @@ import com.codylimber.fieldphenology.ui.screens.timeline.TimelineScreen
 import com.codylimber.fieldphenology.ui.screens.tripreport.TripReportScreen
 import com.codylimber.fieldphenology.ui.screens.settings.SettingsScreen
 import com.codylimber.fieldphenology.ui.screens.speciesdetail.SpeciesDetailScreen
+import com.codylimber.fieldphenology.ui.screens.speciesdetail.SpeciesMapScreen
 import com.codylimber.fieldphenology.ui.screens.specieslist.SpeciesListScreen
 import com.codylimber.fieldphenology.ui.screens.targets.TargetsScreen
 import com.codylimber.fieldphenology.ui.theme.LocalBottomPadding
@@ -242,6 +243,26 @@ fun MainScreen(
                     taxonId = taxonId,
                     repository = repository,
                     lifeListService = lifeListService,
+                    onBack = { navController.popBackStack() },
+                    onOpenMap = { tId, pId -> navController.navigate(Routes.speciesMap(tId, pId)) }
+                )
+            }
+            composable(
+                route = Routes.SPECIES_MAP,
+                arguments = listOf(
+                    navArgument("taxonId") { type = NavType.IntType },
+                    navArgument("placeId") { type = NavType.IntType }
+                )
+            ) { backStackEntry ->
+                val taxonId = backStackEntry.arguments?.getInt("taxonId") ?: return@composable
+                val rawPlaceId = backStackEntry.arguments?.getInt("placeId") ?: -1
+                val placeId = if (rawPlaceId == -1) null else rawPlaceId
+                val species = repository.getSpeciesById(taxonId)
+                val speciesName = species?.commonName?.ifEmpty { species.scientificName } ?: "Observations"
+                SpeciesMapScreen(
+                    taxonId = taxonId,
+                    placeId = placeId,
+                    speciesName = speciesName,
                     onBack = { navController.popBackStack() }
                 )
             }

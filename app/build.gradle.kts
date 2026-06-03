@@ -47,6 +47,7 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.foundation:foundation")
@@ -70,6 +71,9 @@ dependencies {
     // Glance (home screen widgets)
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.glance:glance-material3:1.1.1")
+
+    // Map
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
 
     // Image loading
     implementation("io.coil-kt.coil3:coil-compose:3.0.4")

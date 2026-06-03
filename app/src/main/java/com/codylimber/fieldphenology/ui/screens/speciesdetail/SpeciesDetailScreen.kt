@@ -2,6 +2,7 @@ package com.codylimber.fieldphenology.ui.screens.speciesdetail
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,12 +10,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -41,7 +44,8 @@ fun SpeciesDetailScreen(
     taxonId: Int,
     repository: PhenologyRepository,
     lifeListService: LifeListService? = null,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenMap: (taxonId: Int, placeId: Int?) -> Unit = { _, _ -> }
 ) {
     val species = repository.getSpeciesById(taxonId)
     val key = repository.getKeyForSpecies(taxonId)
@@ -246,6 +250,44 @@ fun SpeciesDetailScreen(
                     )
                 }
 
+                // Observation map
+                val dataset = repository.getDataset(key)
+                val placeId = dataset?.metadata?.placeId
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Observations",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    IconButton(onClick = { onOpenMap(species.taxonId, placeId) }) {
+                        Icon(
+                            Icons.Default.ZoomOutMap,
+                            contentDescription = "Full screen map",
+                            tint = Primary
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onOpenMap(species.taxonId, placeId) }
+                ) {
+                    SpeciesMapView(
+                        taxonId = species.taxonId,
+                        placeId = placeId,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
                 // Links
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(
@@ -262,16 +304,8 @@ fun SpeciesDetailScreen(
                     ) {
                         Text("View on iNat", color = Primary, fontSize = 13.sp)
                     }
-                    val dataset = repository.getDataset(key)
                     OutlinedButton(
-                        onClick = {
-                            val mapUrl = buildString {
-                                append("https://www.inaturalist.org/observations?taxon_id=${species.taxonId}")
-                                dataset?.metadata?.placeId?.let { append("&place_id=$it") }
-                                append("&subview=map")
-                            }
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(mapUrl)))
-                        },
+                        onClick = { onOpenMap(species.taxonId, placeId) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp)
                     ) {
