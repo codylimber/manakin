@@ -2,11 +2,8 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Full green background -->
     <item android:drawable="@color/ic_launcher_background"/>
-    <!-- Manakin logo centered, ~50% screen width -->
-    <item
-        android:gravity="center"
-        android:width="200dp"
-        android:height="200dp">
+    <!-- Manakin logo centered, scaled to fit -->
+    <item>
         <bitmap
             android:src="@mipmap/ic_launcher_foreground"
             android:gravity="center"/>
