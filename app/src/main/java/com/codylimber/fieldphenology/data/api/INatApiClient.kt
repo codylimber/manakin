@@ -14,7 +14,10 @@ import java.security.MessageDigest
 class INatApiClient(private val client: OkHttpClient) {
 
     companion object {
-        const val BASE_URL = "https://api.inaturalist.org/v1"
+        const val BASE_URL = "https://api.inaturalist.org/v2"
+        // Some endpoints (e.g. places/autocomplete) are not implemented in v2, so a
+        // few calls still target v1 explicitly.
+        const val V1_BASE_URL = "https://api.inaturalist.org/v1"
         const val DATA_INTERVAL_MS = 2000L
         const val INTERACTIVE_INTERVAL_MS = 500L
         const val MAX_RETRIES = 5
@@ -47,14 +50,15 @@ class INatApiClient(private val client: OkHttpClient) {
         endpoint: String,
         params: Map<String, String> = emptyMap(),
         intervalMs: Long = DATA_INTERVAL_MS,
-        useCache: Boolean = true
+        useCache: Boolean = true,
+        baseUrl: String = BASE_URL
     ): JsonObject {
         if (useCache) {
-            val key = cacheKey(endpoint, params)
+            val key = cacheKey("$baseUrl/$endpoint", params)
             cache[key]?.let { return it }
         }
 
-        val urlBuilder = StringBuilder("$BASE_URL/$endpoint")
+        val urlBuilder = StringBuilder("$baseUrl/$endpoint")
         if (params.isNotEmpty()) {
             urlBuilder.append("?")
             urlBuilder.append(params.entries.joinToString("&") { "${URLEncoder.encode(it.key, "UTF-8")}=${URLEncoder.encode(it.value, "UTF-8")}" })
@@ -90,7 +94,7 @@ class INatApiClient(private val client: OkHttpClient) {
 
                 val result = json.parseToJsonElement(body).jsonObject
                 if (useCache) {
-                    cache[cacheKey(endpoint, params)] = result
+                    cache[cacheKey("$baseUrl/$endpoint", params)] = result
                     while (cache.size > MAX_CACHE_SIZE) {
                         cache.remove(cache.keys.first())
                     }
@@ -119,7 +123,8 @@ class INatApiClient(private val client: OkHttpClient) {
             "places/autocomplete",
             mapOf("q" to query, "per_page" to "10"),
             intervalMs = INTERACTIVE_INTERVAL_MS,
-            useCache = false
+            useCache = false,
+            baseUrl = V1_BASE_URL
         )
         return data["results"]?.jsonArray?.mapNotNull { r ->
             val obj = r.jsonObject
@@ -133,7 +138,11 @@ class INatApiClient(private val client: OkHttpClient) {
     suspend fun searchTaxa(query: String): List<TaxonResult> {
         val data = get(
             "taxa/autocomplete",
-            mapOf("q" to query, "per_page" to "10"),
+            mapOf(
+                "q" to query,
+                "per_page" to "10",
+                "fields" to "(name:!t,preferred_common_name:!t,rank:!t)"
+            ),
             intervalMs = INTERACTIVE_INTERVAL_MS,
             useCache = false
         )
@@ -161,7 +170,8 @@ class INatApiClient(private val client: OkHttpClient) {
             "photos" to "true",
             "photo_licensed" to "true",
             "per_page" to maxResults.toString(),
-            "order_by" to "votes"
+            "order_by" to "votes",
+            "fields" to "(photos:(license_code:!t,url:!t,medium_url:!t,attribution:!t))"
         )
         if (placeIds.isNotEmpty()) {
             params["place_id"] = placeIds.joinToString(",")
@@ -208,7 +218,8 @@ class INatApiClient(private val client: OkHttpClient) {
             "quality_grade" to qualityGrade,
             "place_id" to placeId.toString(),
             "page" to page.toString(),
-            "per_page" to perPage.toString()
+            "per_page" to perPage.toString(),
+            "fields" to "(taxon:(id:!t,name:!t,preferred_common_name:!t))"
         )
         if (taxonId != null) params["taxon_id"] = taxonId.toString()
 
@@ -239,7 +250,15 @@ class INatApiClient(private val client: OkHttpClient) {
 
     suspend fun getTaxaDetails(taxonIds: List<Int>): List<JsonObject> {
         val idsStr = taxonIds.take(30).joinToString(",")
-        val data = get("taxa/$idsStr")
+        val data = get(
+            "taxa/$idsStr",
+            mapOf(
+                "fields" to "(name:!t,rank:!t,preferred_common_name:!t," +
+                    "default_photo:(medium_url:!t,url:!t)," +
+                    "taxon_photos:(photo:(license_code:!t,url:!t,medium_url:!t,attribution:!t))," +
+                    "ancestors:(id:!t,rank:!t,name:!t,preferred_common_name:!t))"
+            )
+        )
         return data["results"]?.jsonArray?.map { it.jsonObject } ?: emptyList()
     }
 
@@ -268,7 +287,8 @@ class INatApiClient(private val client: OkHttpClient) {
                 "user_id" to username,
                 "quality_grade" to "research",
                 "page" to page.toString(),
-                "per_page" to "200"
+                "per_page" to "200",
+                "fields" to "(taxon:(id:!t))"
             )
             if (taxonId != null) params["taxon_id"] = taxonId.toString()
             if (placeId != null) params["place_id"] = placeId.toString()
@@ -302,7 +322,8 @@ class INatApiClient(private val client: OkHttpClient) {
                 "order_by" to "observed_on",
                 "order" to "asc",
                 "page" to page.toString(),
-                "per_page" to "200"
+                "per_page" to "200",
+                "fields" to "(observed_on:!t,taxon:(id:!t,name:!t,preferred_common_name:!t))"
             )
             val data = get("observations", params, useCache = false)
             val totalResults = data["total_results"]?.jsonPrimitive?.intOrNull ?: 0

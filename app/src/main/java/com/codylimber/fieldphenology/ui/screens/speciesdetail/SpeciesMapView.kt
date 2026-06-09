@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.speciesdetail
 
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -13,6 +15,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.modules.MapTileApproximater
 import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
@@ -28,7 +33,7 @@ private val httpClient = OkHttpClient()
 private suspend fun fetchPlaceBounds(placeId: Int): BoundingBox? = withContext(Dispatchers.IO) {
     try {
         val request = Request.Builder()
-            .url("https://api.inaturalist.org/v1/places/$placeId")
+            .url("https://api.inaturalist.org/v2/places/$placeId?fields=(bounding_box_geojson:!t,geometry_geojson:!t)")
             .header("User-Agent", "Manakin/1.0")
             .build()
         val body = httpClient.newCall(request).execute().use { it.body?.string() } ?: return@withContext null
@@ -64,18 +69,23 @@ fun SpeciesMapView(
         userAgentValue = context.packageName
         osmdroidTileCache = java.io.File(context.cacheDir, "osmdroid")
         tileFileSystemCacheMaxBytes = 50L * 1024 * 1024 // 50MB tile cache
+        // Fetch tiles with more parallelism so the heatmap re-appears quickly
+        // after a zoom instead of trickling in (which looks like lag).
+        tileDownloadThreads = 6
+        tileDownloadMaxQueueSize = 48
     }
 
     // Global heatmap — no place_id filter so worldwide observations show
     val inatTileSource = remember(taxonId) {
         object : OnlineTileSourceBase(
-            "iNaturalist-$taxonId", 1, 13, 256, ".png",
+            "iNaturalist-$taxonId", 1, 18, 256, ".png",
             arrayOf("https://api.inaturalist.org/")
         ) {
             override fun getTileURLString(pMapTileIndex: Long): String {
                 val z = MapTileIndex.getZoom(pMapTileIndex)
                 val x = MapTileIndex.getX(pMapTileIndex)
                 val y = MapTileIndex.getY(pMapTileIndex)
+                // Map tiles are only served from v1 (v2 returns 404 for colored_heatmap).
                 return "https://api.inaturalist.org/v1/colored_heatmap/$z/$x/$y.png?taxon_id=$taxonId&color=%23e8000d"
             }
         }
@@ -85,9 +95,24 @@ fun SpeciesMapView(
         MapView(context).apply {
             setMultiTouchControls(true)
             setBuiltInZoomControls(false)
-            controller.setZoom(4.0)
-            controller.setCenter(GeoPoint(39.5, -98.35))
+            // Scale tiles to the screen density so base-map labels and the heatmap
+            // dots are big enough to read on high-DPI phones (1:1 pixels = tiny).
+            isTilesScaledToDpi = true
+            // iNat serves native heatmap tiles up to ~z18, so allow zooming in that
+            // far — dots stay at native size instead of being scaled into big blobs.
+            minZoomLevel = 2.0
+            maxZoomLevel = 18.0
             setTileSource(TileSourceFactory.MAPNIK)
+
+            // Apply the initial camera only once the view has real dimensions.
+            // Setting zoom/center while the view is still 0×0 leaves OSMDroid unable
+            // to work out which tiles to load, so the map stays blank until a touch
+            // forces a re-layout.
+            addOnFirstLayoutListener { _, _, _, _, _ ->
+                controller.setZoom(4.0)
+                controller.setCenter(GeoPoint(39.5, -98.35))
+                invalidate()
+            }
 
             // Disable tile approximation for the iNat overlay — without this, OSMDroid
             // stretches tiles from adjacent zoom levels while correct tiles load,
@@ -100,6 +125,36 @@ fun SpeciesMapView(
                 loadingLineColor = android.graphics.Color.TRANSPARENT
             }
             overlays.add(inatOverlay)
+
+            // While a zoom is in progress OSMDroid keeps painting the previous zoom
+            // level's tiles (scaled up = big dots) next to freshly-loaded tiles
+            // (small dots). Hide the heatmap during the gesture and bring it back —
+            // at a single, consistent dot size — once the map settles. Panning leaves
+            // the overlay alone since it doesn't change dot size.
+            val idleHandler = Handler(Looper.getMainLooper())
+            val showOverlay = Runnable {
+                if (!inatOverlay.isEnabled) {
+                    inatOverlay.isEnabled = true
+                    invalidate()
+                }
+            }
+            addMapListener(object : MapListener {
+                override fun onScroll(event: ScrollEvent?): Boolean {
+                    // Keep extending the hidden window if a zoom is still settling.
+                    if (!inatOverlay.isEnabled) {
+                        idleHandler.removeCallbacks(showOverlay)
+                        idleHandler.postDelayed(showOverlay, 180)
+                    }
+                    return false
+                }
+
+                override fun onZoom(event: ZoomEvent?): Boolean {
+                    inatOverlay.isEnabled = false
+                    idleHandler.removeCallbacks(showOverlay)
+                    idleHandler.postDelayed(showOverlay, 180)
+                    return false
+                }
+            })
         }
     }
 
