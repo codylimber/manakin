@@ -111,7 +111,10 @@ fun SpeciesMapView(
             addOnFirstLayoutListener { _, _, _, _, _ ->
                 controller.setZoom(4.0)
                 controller.setCenter(GeoPoint(39.5, -98.35))
-                invalidate()
+                // postInvalidate (not invalidate) so the redraw lands on a fresh
+                // frame after layout rather than being swallowed mid-layout. Without
+                // this OSMDroid waits for a touch before drawing the first tiles.
+                postInvalidate()
             }
 
             // Disable tile approximation for the iNat overlay — without this, OSMDroid
@@ -170,6 +173,18 @@ fun SpeciesMapView(
         }
     }
 
+    // OSMDroid hosted in a Compose AndroidView (inside a scrolling screen) doesn't
+    // reliably repaint as the first tiles arrive — the async tile-loaded invalidate
+    // can fire before the view is attached and gets dropped, so the map stays blank
+    // until a touch forces a redraw. Nudge it from the Compose side, where the view
+    // is attached, for a few seconds after it appears.
+    LaunchedEffect(taxonId, placeId) {
+        repeat(12) {
+            kotlinx.coroutines.delay(250)
+            mapView.postInvalidate()
+        }
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -187,6 +202,9 @@ fun SpeciesMapView(
 
     AndroidView(
         factory = { mapView },
+        // Kick a redraw once the view is composed/attached. OSMDroid otherwise
+        // renders nothing until the first touch event invalidates the map.
+        update = { it.onResume(); it.invalidate() },
         modifier = modifier
     )
 }
