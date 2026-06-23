@@ -228,6 +228,7 @@ fun MainScreen(
                 SettingsScreen(
                     lifeListService = lifeListService,
                     repository = repository,
+                    apiClient = apiClient,
                     onTimeline = mc.onTimeline, onTripReport = mc.onTripReport,
                     onCompare = mc.onCompare, onLifeList = mc.onLifeList, onHelp = mc.onHelp, onAbout = mc.onAbout
                 )

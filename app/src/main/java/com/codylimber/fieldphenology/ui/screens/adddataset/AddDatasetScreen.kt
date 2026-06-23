@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -25,6 +26,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.navigation.GenerationParams
+import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.ui.theme.Primary
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -167,6 +169,40 @@ fun AddDatasetScreen(
                         DropdownMenuItem(
                             text = { Text(taxon.displayName, fontSize = 14.sp) },
                             onClick = { viewModel.addTaxon(taxon) }
+                        )
+                    }
+                }
+            }
+
+            // Favorite taxa quick-add — tap a favorite to add it, or add them all.
+            // Lets you reload your usual groups in one tap when starting a new place.
+            val availableFavorites = AppSettings.favoriteTaxa.filter { fav ->
+                state.selectedTaxons.none { it.id == fav.id }
+            }
+            if (availableFavorites.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Favorites", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    if (availableFavorites.size > 1) {
+                        TextButton(
+                            onClick = { viewModel.addTaxa(availableFavorites) },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text("Add all", color = Primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    availableFavorites.forEach { fav ->
+                        AssistChip(
+                            onClick = { viewModel.addTaxon(fav) },
+                            label = { Text(fav.commonName.ifEmpty { fav.scientificName }, fontSize = 13.sp) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(16.dp), tint = Primary)
+                            }
                         )
                     }
                 }

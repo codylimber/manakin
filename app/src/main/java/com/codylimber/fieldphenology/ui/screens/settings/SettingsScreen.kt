@@ -6,6 +6,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Person
@@ -19,14 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.data.api.LifeListService
 import com.codylimber.fieldphenology.data.api.ObservationScope
+import com.codylimber.fieldphenology.data.api.TaxonResult
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.data.model.SortMode
 import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.ui.theme.LocalBottomPadding
 import com.codylimber.fieldphenology.ui.theme.Primary
 import com.codylimber.fieldphenology.ui.theme.ThemeState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,6 +42,7 @@ import java.util.Locale
 fun SettingsScreen(
     lifeListService: LifeListService,
     repository: PhenologyRepository,
+    apiClient: INatApiClient,
     onBack: (() -> Unit)? = null,
     onTimeline: (() -> Unit)? = null,
     onTripReport: (() -> Unit)? = null,
@@ -292,6 +298,15 @@ fun SettingsScreen(
                 }
             }
 
+            // Favorite Taxa
+            SectionHeader(Icons.Default.Favorite, "Favorite Taxa")
+            Text(
+                "Save the groups you usually look for (e.g. Butterflies, plant genera). " +
+                "When you add a dataset for a new place, you can load them all in one tap.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp
+            )
+            FavoriteTaxaSection(apiClient)
+
             // Notifications
             SectionHeader(Icons.Default.Notifications, "Notifications")
 
@@ -474,6 +489,76 @@ fun SettingsScreen(
 
 
             Spacer(modifier = Modifier.height(LocalBottomPadding.current))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun FavoriteTaxaSection(apiClient: INatApiClient) {
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<TaxonResult>>(emptyList()) }
+    var expanded by remember { mutableStateOf(false) }
+
+    // Debounced taxon search — cancelled and restarted whenever the query changes.
+    LaunchedEffect(query) {
+        if (query.length < 2) {
+            results = emptyList()
+            return@LaunchedEffect
+        }
+        delay(200)
+        results = try { apiClient.searchTaxa(query) } catch (_: Exception) { emptyList() }
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded && results.isNotEmpty(),
+        onExpandedChange = { }
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it; expanded = true },
+            placeholder = { Text("Search for a taxon to favorite...") },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded && results.isNotEmpty(),
+            onDismissRequest = { expanded = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            results.forEach { taxon ->
+                DropdownMenuItem(
+                    text = { Text(taxon.displayName, fontSize = 14.sp) },
+                    onClick = {
+                        AppSettings.addFavoriteTaxon(taxon)
+                        query = ""
+                        expanded = false
+                        results = emptyList()
+                    }
+                )
+            }
+        }
+    }
+
+    if (AppSettings.favoriteTaxa.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            AppSettings.favoriteTaxa.forEach { taxon ->
+                InputChip(
+                    selected = true,
+                    onClick = { AppSettings.removeFavoriteTaxon(taxon.id) },
+                    label = { Text(taxon.commonName.ifEmpty { taxon.scientificName }, fontSize = 13.sp) },
+                    trailingIcon = {
+                        Icon(Icons.Default.Close, "Remove", modifier = Modifier.size(16.dp))
+                    },
+                    colors = InputChipDefaults.inputChipColors(
+                        selectedContainerColor = Primary.copy(alpha = 0.15f),
+                        selectedLabelColor = Primary
+                    )
+                )
+            }
         }
     }
 }

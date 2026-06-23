@@ -149,6 +149,22 @@ class AddDatasetViewModel(private val apiClient: INatApiClient) : ViewModel() {
         }
     }
 
+    fun addTaxa(taxa: List<TaxonResult>) {
+        val current = _state.value.selectedTaxons
+        val existingIds = current.map { it.id }.toSet()
+        val additions = taxa.filter { it.id !in existingIds }
+            .distinctBy { it.id }
+        if (additions.isEmpty()) return
+        _state.value = _state.value.copy(
+            selectedTaxons = current + additions,
+            taxonQuery = "",
+            showTaxonDropdown = false,
+            taxonResults = emptyList()
+        )
+        updateAutoLabel()
+        fetchEstimate()
+    }
+
     fun removeTaxon(taxon: TaxonResult) {
         _state.value = _state.value.copy(
             selectedTaxons = _state.value.selectedTaxons.filter { it.id != taxon.id }
