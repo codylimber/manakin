@@ -21,11 +21,11 @@ import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.modules.MapTileApproximater
 import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.CopyrightOverlay
 import org.osmdroid.views.overlay.TilesOverlay
 
 private val httpClient = OkHttpClient()
@@ -75,6 +75,31 @@ fun SpeciesMapView(
         tileDownloadMaxQueueSize = 48
     }
 
+    // High-DPI ("retina", @2x = 512px) base map. The classic OSM "Mapnik"
+    // server only serves 256px tiles, so on a dense phone screen those get
+    // upscaled ~2.6x and look soft/pixelated. Carto's Voyager style is an
+    // OSM-derived colorful basemap (green parks, blue water, colored roads)
+    // that serves native 512px @2x tiles with no API key, so the base only
+    // has to scale ~1.3x to fill the DPI-scaled tile grid below — crisp.
+    val baseTileSource = remember {
+        object : OnlineTileSourceBase(
+            "CartoVoyagerRetina", 0, 20, 512, "@2x.png",
+            arrayOf(
+                "https://a.basemaps.cartocdn.com/",
+                "https://b.basemaps.cartocdn.com/",
+                "https://c.basemaps.cartocdn.com/",
+                "https://d.basemaps.cartocdn.com/"
+            )
+        ) {
+            override fun getTileURLString(pMapTileIndex: Long): String {
+                val z = MapTileIndex.getZoom(pMapTileIndex)
+                val x = MapTileIndex.getX(pMapTileIndex)
+                val y = MapTileIndex.getY(pMapTileIndex)
+                return baseUrl + "rastertiles/voyager/$z/$x/$y@2x.png"
+            }
+        }
+    }
+
     // Global heatmap — no place_id filter so worldwide observations show
     val inatTileSource = remember(taxonId) {
         object : OnlineTileSourceBase(
@@ -95,14 +120,17 @@ fun SpeciesMapView(
         MapView(context).apply {
             setMultiTouchControls(true)
             setBuiltInZoomControls(false)
-            // Scale tiles to the screen density so base-map labels and the heatmap
-            // dots are big enough to read on high-DPI phones (1:1 pixels = tiny).
-            isTilesScaledToDpi = true
             // iNat serves native heatmap tiles up to ~z18, so allow zooming in that
             // far — dots stay at native size instead of being scaled into big blobs.
             minZoomLevel = 2.0
             maxZoomLevel = 18.0
-            setTileSource(TileSourceFactory.MAPNIK)
+            // Crisp colorful OSM-style base via 512px @2x retina tiles.
+            setTileSource(baseTileSource)
+            // Scale tiles to the screen density so the (256px) heatmap dots are big
+            // enough to read on high-DPI phones. The base is already @2x, so it only
+            // scales mildly and stays sharp instead of being upscaled from 256px.
+            // Set after the tile source so the DPI scale is derived from the 512px base.
+            isTilesScaledToDpi = true
 
             // Apply the initial camera only once the view has real dimensions.
             // Setting zoom/center while the view is still 0×0 leaves OSMDroid unable
@@ -128,6 +156,11 @@ fun SpeciesMapView(
                 loadingLineColor = android.graphics.Color.TRANSPARENT
             }
             overlays.add(inatOverlay)
+
+            // Carto's free tiles require attribution to OSM and CARTO.
+            overlays.add(CopyrightOverlay(context).apply {
+                setCopyrightNotice("© OpenStreetMap contributors, © CARTO")
+            })
 
             // While a zoom is in progress OSMDroid keeps painting the previous zoom
             // level's tiles (scaled up = big dots) next to freshly-loaded tiles
