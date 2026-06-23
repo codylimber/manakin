@@ -35,22 +35,27 @@ private val pages = listOf(
     ),
     OnboardingPage(
         "Data Packs",
-        "Go to the Datasets tab and tap + to download species data for any location and taxonomic group from iNaturalist.\n\nYou can combine multiple locations and taxa in one pack. Each pack contains phenology data showing when species are most likely to be observed.",
+        "Go to the Datasets tab and tap + to download species data for any location and taxonomic group from iNaturalist.\n\nCombine multiple places and taxa in one pack. Save the groups you look for most as Favorite Taxa in Settings, then load them all with one tap when you travel somewhere new.",
         "\uD83D\uDCE6"
     ),
     OnboardingPage(
         "Explore Species",
-        "The Explore tab shows species sorted by likelihood. Use the Active/All toggle to filter.\n\nSwipe right on any species to add it to your targets. Long-press to share.",
-        "\uD83D\uDCC5"
+        "The Explore tab lists species sorted by how likely you are to see them right now. Use the Active/All toggle to filter.\n\nSwipe a card right to add it to your Targets, long-press to share, and tap it to open its detail page.",
+        "\uD83D\uDD0D"
+    ),
+    OnboardingPage(
+        "Species Details",
+        "Tap any species to see its phenology curve \u2014 when it peaks through the year \u2014 along with photos, key facts, and a live observation map.\n\nPinch and pan the map to explore where the species has been recorded.",
+        "\uD83D\uDCC8"
     ),
     OnboardingPage(
         "Targets & Tracking",
-        "The Targets tab is your planning hub. Star species, find lifers, and discover species new to an area.\n\nConnect your iNaturalist username in Settings to unlock observation tracking.",
+        "The Targets tab is your planning hub. Star species to track them, find lifers, and discover species new to an area.\n\nAdd your iNaturalist username in Settings to unlock observation tracking and life-list features.",
         "\u2B50"
     ),
     OnboardingPage(
         "Plan Ahead",
-        "Use the date picker to see what will be active during a future trip. Pick a date range for multi-day planning.\n\nCompare locations from the menu to find species unique to different areas.",
+        "Use the date picker to preview what will be active during a future trip, or pick a date range for multi-day planning.\n\nCompare locations from the menu to find species unique to different areas.",
         "\uD83D\uDDFA\uFE0F"
     )
 )
