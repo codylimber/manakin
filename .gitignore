@@ -18,6 +18,7 @@ Thumbs.db
 # Keystore (keep private)
 *.jks
 *.keystore
+keystore.properties
 
 # Xcode
 ios/*.xcodeproj/xcuserdata/
