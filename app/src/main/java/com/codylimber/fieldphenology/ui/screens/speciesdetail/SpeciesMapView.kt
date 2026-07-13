@@ -1,15 +1,37 @@
 package com.codylimber.fieldphenology.ui.screens.speciesdetail
 
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Point
+import android.graphics.RectF
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -25,10 +47,123 @@ import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.MapView
+import org.osmdroid.views.Projection
 import org.osmdroid.views.overlay.CopyrightOverlay
+import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.TilesOverlay
 
 private val httpClient = OkHttpClient()
+
+// Above this zoom the map swaps the density heatmap for individual observation
+// markers (precise = pin, obscured = ring). iNat does the same: heatmap when
+// zoomed out, real points when zoomed in.
+private const val PIN_ZOOM_THRESHOLD = 12.0
+
+private data class MapObservation(val lat: Double, val lng: Double, val obscured: Boolean)
+
+/**
+ * Fetch individual observations of a taxon within a viewport. Each carries whether
+ * its location is obscured — iNat randomizes obscured coordinates to a ~0.2° cell,
+ * so those points are only approximate and are drawn as rings rather than pins.
+ */
+private suspend fun fetchObservations(taxonId: Int, bbox: BoundingBox): List<MapObservation> =
+    withContext(Dispatchers.IO) {
+        try {
+            val url = "https://api.inaturalist.org/v1/observations" +
+                "?taxon_id=$taxonId&mappable=true&per_page=200&order_by=created_at&order=desc" +
+                "&nelat=${bbox.latNorth}&nelng=${bbox.lonEast}" +
+                "&swlat=${bbox.latSouth}&swlng=${bbox.lonWest}"
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Manakin/1.0")
+                .build()
+            val body = httpClient.newCall(request).execute().use { it.body?.string() }
+                ?: return@withContext emptyList()
+            val results = JSONObject(body).getJSONArray("results")
+            val list = ArrayList<MapObservation>(results.length())
+            for (i in 0 until results.length()) {
+                val o = results.getJSONObject(i)
+                val geo = o.optJSONObject("geojson") ?: continue
+                val coords = geo.optJSONArray("coordinates") ?: continue
+                val lng = coords.optDouble(0, Double.NaN)
+                val lat = coords.optDouble(1, Double.NaN)
+                if (lat.isNaN() || lng.isNaN()) continue
+                val obscured = o.optBoolean("obscured", false) ||
+                    o.optString("geoprivacy") == "obscured" ||
+                    o.optString("taxon_geoprivacy") == "obscured"
+                list.add(MapObservation(lat, lng, obscured))
+            }
+            list
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+/**
+ * Draws observations on top of the base map: precise ones as a teardrop pin whose
+ * tip marks the exact spot, obscured ones as a hollow ring (location approximate).
+ * Both get a white halo so they read against any basemap color.
+ */
+private class ObservationsOverlay(context: Context) : Overlay() {
+    private class Marker(val point: GeoPoint, val obscured: Boolean)
+
+    @Volatile private var markers: List<Marker> = emptyList()
+    private val d = context.resources.displayMetrics.density
+    private val red = Color.parseColor("#E8000D")
+
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = red }
+    private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE; color = Color.WHITE; strokeWidth = 3f * d
+    }
+    private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE; color = red; strokeWidth = 2.5f * d
+    }
+    private val eyePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = Color.WHITE }
+
+    // Reused across the whole draw pass so panning/zooming doesn't allocate per pin
+    // per frame (that GC churn was a big source of the map jank).
+    private val pt = Point()
+    private val path = Path()
+    private val rect = RectF()
+
+    fun setObservations(list: List<MapObservation>) {
+        markers = list.map { Marker(GeoPoint(it.lat, it.lng), it.obscured) }
+    }
+
+    override fun draw(canvas: Canvas, projection: Projection) {
+        if (!isEnabled) return
+        val snapshot = markers
+        if (snapshot.isEmpty()) return
+        val r = 6.5f * d
+        for (m in snapshot) {
+            projection.toPixels(m.point, pt)
+            val x = pt.x.toFloat()
+            val y = pt.y.toFloat()
+            if (m.obscured) {
+                canvas.drawCircle(x, y, r, haloPaint)
+                canvas.drawCircle(x, y, r, ringPaint)
+            } else {
+                buildPin(x, y, r)
+                canvas.drawPath(path, haloPaint)
+                canvas.drawPath(path, fillPaint)
+                canvas.drawCircle(x, y - 2.4f * r, r * 0.42f, eyePaint)
+            }
+        }
+    }
+
+    // Teardrop pin with the tip anchored at (cx, tipY) so it points at the exact spot.
+    // Builds into the reused `path` (rewind, not allocate).
+    private fun buildPin(cx: Float, tipY: Float, r: Float) {
+        val headCy = tipY - 2.4f * r
+        rect.set(cx - r, headCy - r, cx + r, headCy + r)
+        path.rewind()
+        path.moveTo(cx, tipY)
+        path.cubicTo(cx - r * 0.85f, tipY - r * 1.1f, cx - r, headCy + r * 0.55f, cx - r, headCy)
+        path.arcTo(rect, 180f, 180f, false)
+        path.cubicTo(cx + r, headCy + r * 0.55f, cx + r * 0.85f, tipY - r * 1.1f, cx, tipY)
+        path.close()
+    }
+}
 
 private suspend fun fetchPlaceBounds(placeId: Int): BoundingBox? = withContext(Dispatchers.IO) {
     try {
@@ -116,6 +251,10 @@ fun SpeciesMapView(
         }
     }
 
+    val scope = rememberCoroutineScope()
+    val obsOverlay = remember { ObservationsOverlay(context) }
+    val legendState = remember { mutableStateOf(false) }
+
     val mapView = remember {
         MapView(context).apply {
             setMultiTouchControls(true)
@@ -157,37 +296,76 @@ fun SpeciesMapView(
             }
             overlays.add(inatOverlay)
 
+            // Observation markers overlay — hidden until the user zooms in past the
+            // pin threshold, at which point it replaces the heatmap.
+            obsOverlay.isEnabled = false
+            overlays.add(obsOverlay)
+
             // Carto's free tiles require attribution to OSM and CARTO.
             overlays.add(CopyrightOverlay(context).apply {
                 setCopyrightNotice("© OpenStreetMap contributors, © CARTO")
             })
 
-            // While a zoom is in progress OSMDroid keeps painting the previous zoom
-            // level's tiles (scaled up = big dots) next to freshly-loaded tiles
-            // (small dots). Hide the heatmap during the gesture and bring it back —
-            // at a single, consistent dot size — once the map settles. Panning leaves
-            // the overlay alone since it doesn't change dot size.
-            val idleHandler = Handler(Looper.getMainLooper())
-            val showOverlay = Runnable {
-                if (!inatOverlay.isEnabled) {
+            // Once the map settles after a pan/zoom, decide what to show:
+            //  - zoomed out -> density heatmap (markers off)
+            //  - zoomed in  -> individual observation markers for the current viewport.
+            // We keep the heatmap up until the markers have actually loaded, then swap
+            // it off — so there's no blank flash and the heatmap doesn't blink on every
+            // zoom. Vector markers track the projection during the gesture, so they don't
+            // need hiding mid-zoom. Refetches are skipped when the viewport barely moved.
+            val settleHandler = Handler(Looper.getMainLooper())
+            var fetchJob: Job? = null
+            var lastLat = Double.NaN
+            var lastLng = Double.NaN
+            var lastZoomInt = -1
+            val settle = Runnable {
+                if (zoomLevelDouble >= PIN_ZOOM_THRESHOLD) {
+                    obsOverlay.isEnabled = true
+                    legendState.value = true
+                    val bb = boundingBox
+                    val cLat = (bb.latNorth + bb.latSouth) / 2.0
+                    val cLng = (bb.lonEast + bb.lonWest) / 2.0
+                    val zInt = zoomLevelDouble.toInt()
+                    val spanLat = bb.latNorth - bb.latSouth
+                    val spanLng = bb.lonEast - bb.lonWest
+                    val moved = lastLat.isNaN() || zInt != lastZoomInt ||
+                        kotlin.math.abs(cLat - lastLat) > spanLat * 0.25 ||
+                        kotlin.math.abs(cLng - lastLng) > spanLng * 0.25
+                    if (moved) {
+                        lastLat = cLat; lastLng = cLng; lastZoomInt = zInt
+                        fetchJob?.cancel()
+                        fetchJob = scope.launch {
+                            delay(250)
+                            val obs = fetchObservations(taxonId, bb)
+                            // Only apply if we're still zoomed in — the user may have
+                            // zoomed back out while this was in flight.
+                            if (zoomLevelDouble >= PIN_ZOOM_THRESHOLD) {
+                                obsOverlay.setObservations(obs)
+                                inatOverlay.isEnabled = false
+                                postInvalidate()
+                            }
+                        }
+                    }
+                } else {
+                    fetchJob?.cancel()
                     inatOverlay.isEnabled = true
-                    invalidate()
+                    obsOverlay.isEnabled = false
+                    obsOverlay.setObservations(emptyList())
+                    legendState.value = false
+                    lastLat = Double.NaN; lastLng = Double.NaN; lastZoomInt = -1
                 }
+                invalidate()
             }
             addMapListener(object : MapListener {
                 override fun onScroll(event: ScrollEvent?): Boolean {
-                    // Keep extending the hidden window if a zoom is still settling.
-                    if (!inatOverlay.isEnabled) {
-                        idleHandler.removeCallbacks(showOverlay)
-                        idleHandler.postDelayed(showOverlay, 180)
-                    }
+                    settleHandler.removeCallbacks(settle)
+                    settleHandler.postDelayed(settle, 200)
                     return false
                 }
 
                 override fun onZoom(event: ZoomEvent?): Boolean {
-                    inatOverlay.isEnabled = false
-                    idleHandler.removeCallbacks(showOverlay)
-                    idleHandler.postDelayed(showOverlay, 180)
+                    settleHandler.removeCallbacks(settle)
+                    settleHandler.postDelayed(settle, 200)
                     return false
                 }
             })
@@ -233,11 +411,28 @@ fun SpeciesMapView(
         }
     }
 
-    AndroidView(
-        factory = { mapView },
-        // Kick a redraw once the view is composed/attached. OSMDroid otherwise
-        // renders nothing until the first touch event invalidates the map.
-        update = { it.onResume(); it.invalidate() },
-        modifier = modifier
-    )
+    Box(modifier = modifier) {
+        AndroidView(
+            factory = { mapView },
+            // Kick a redraw once the view is composed/attached. OSMDroid otherwise
+            // renders nothing until the first touch event invalidates the map.
+            update = { it.onResume(); it.invalidate() },
+            modifier = Modifier.fillMaxSize()
+        )
+        // Legend appears only in pin mode so users know pin = exact, ring = obscured.
+        if (legendState.value) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(8.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(androidx.compose.ui.graphics.Color(0xCC1A1A1A))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("📍 Precise", color = androidx.compose.ui.graphics.Color.White, fontSize = 11.sp)
+                Text("○ Obscured", color = androidx.compose.ui.graphics.Color.White, fontSize = 11.sp)
+            }
+        }
+    }
 }
