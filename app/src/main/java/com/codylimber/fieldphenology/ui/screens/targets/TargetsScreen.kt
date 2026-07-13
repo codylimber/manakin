@@ -206,6 +206,11 @@ fun TargetsScreen(
                         val photoUri = target.species.photos.firstOrNull()?.let {
                             repository.getPhotoUri(target.key, it.file)
                         }
+                        // Show a "seen before" checkmark on Starred and New-for-Area, based on
+                        // global observations (you may have seen a New-for-Area species elsewhere).
+                        // Lifer Targets are unseen by definition, so no checkmark there.
+                        val showObserved = hasLifeList && mode != TargetMode.NOT_SEEN_ANYWHERE
+                        val isSeen = showObserved && target.species.taxonId in observedGlobal
                         if (mode == TargetMode.STARRED) {
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { AppSettings.toggleFavorite(target.species.taxonId); true } else false }
@@ -218,11 +223,13 @@ fun TargetsScreen(
                                 }) {
                                 SpeciesCard(species = target.species, status = target.status,
                                     currentWeek = currentWeek, photoUri = photoUri,
+                                    isObserved = isSeen, showObservedIndicator = showObserved,
                                     onClick = { onSpeciesClick(target.species.taxonId) })
                             }
                         } else {
                             SpeciesCard(species = target.species, status = target.status,
                                 currentWeek = currentWeek, photoUri = photoUri,
+                                isObserved = isSeen, showObservedIndicator = showObserved,
                                 onClick = { onSpeciesClick(target.species.taxonId) })
                         }
                     }
