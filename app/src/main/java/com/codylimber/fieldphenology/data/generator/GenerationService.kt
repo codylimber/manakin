@@ -10,6 +10,8 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.codylimber.fieldphenology.MainActivity
 import com.codylimber.fieldphenology.R
+import com.codylimber.fieldphenology.data.api.DatasetSource
+import com.codylimber.fieldphenology.data.api.GbifApiClient
 import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.ui.navigation.GenerationParams
 import kotlinx.coroutines.*
@@ -102,6 +104,9 @@ class GenerationService : Service() {
 
         val apiClient = INatApiClient(MainActivity.sharedHttpClient)
         val generator = DatasetGenerator(apiClient, applicationContext)
+        val gbifGenerator = GbifDatasetGenerator(
+            GbifApiClient(MainActivity.sharedHttpClient), apiClient, applicationContext
+        )
 
         job = scope.launch {
             var currentParams: GenerationParams = params
@@ -111,20 +116,37 @@ class GenerationService : Service() {
                     _error.value = null
                     _progress.value = null
 
-                    generator.generate(
-                        placeIds = currentParams.placeIds,
-                        placeName = currentParams.placeName,
-                        taxonIds = currentParams.taxonIds,
-                        taxonName = currentParams.taxonName,
-                        groupName = currentParams.groupName,
-                        minObs = currentParams.minObs,
-                        qualityGrade = currentParams.qualityGrade,
-                        maxPhotos = currentParams.maxPhotos,
-                        onProgress = { progress ->
-                            _progress.value = progress
-                            updateNotification(progress.message)
-                        }
-                    )
+                    val onProgress: (GenerationProgress) -> Unit = { progress ->
+                        _progress.value = progress
+                        updateNotification(progress.message)
+                    }
+
+                    if (currentParams.source == DatasetSource.GBIF) {
+                        gbifGenerator.generate(
+                            areaGids = currentParams.gbifAreaIds,
+                            areaName = currentParams.placeName,
+                            taxonKeys = currentParams.taxonIds,
+                            taxonName = currentParams.taxonName,
+                            groupName = currentParams.groupName,
+                            minObs = currentParams.minObs,
+                            yearsBack = currentParams.gbifYearsBack,
+                            sampleSize = currentParams.gbifSampleSize,
+                            maxPhotos = currentParams.maxPhotos,
+                            onProgress = onProgress
+                        )
+                    } else {
+                        generator.generate(
+                            placeIds = currentParams.placeIds,
+                            placeName = currentParams.placeName,
+                            taxonIds = currentParams.taxonIds,
+                            taxonName = currentParams.taxonName,
+                            groupName = currentParams.groupName,
+                            minObs = currentParams.minObs,
+                            qualityGrade = currentParams.qualityGrade,
+                            maxPhotos = currentParams.maxPhotos,
+                            onProgress = onProgress
+                        )
+                    }
                     _isComplete.value = true
                     updateNotification("Complete!")
                 } catch (e: CancellationException) {

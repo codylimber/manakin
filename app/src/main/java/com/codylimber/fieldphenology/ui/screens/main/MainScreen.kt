@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
+import com.codylimber.fieldphenology.data.api.DatasetSource
 import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.data.api.LifeListService
 import com.codylimber.fieldphenology.data.generator.DatasetGenerator
@@ -201,17 +202,33 @@ fun MainScreen(
                     onAddDataset = { navController.navigate(Routes.ADD_DATASET) },
                     onUpdateDataset = { meta ->
                         val tIds: List<Int?> = if (meta.taxonIds.isEmpty()) listOf(null) else meta.taxonIds.map { it }
-                        val pIds = if (meta.placeIds.isNotEmpty()) meta.placeIds else listOf(meta.placeId)
-                        val updateParams = GenerationParams(
-                            placeIds = pIds,
-                            placeName = meta.placeName,
-                            taxonIds = tIds,
-                            taxonName = meta.taxonName,
-                            groupName = meta.group,
-                            minObs = meta.minObs,
-                            qualityGrade = meta.qualityGrade,
-                            maxPhotos = meta.maxPhotos
-                        )
+                        val updateParams = if (meta.source == "gbif") {
+                            GenerationParams(
+                                placeIds = emptyList(),
+                                placeName = meta.placeName,
+                                taxonIds = tIds,               // GBIF backbone keys
+                                taxonName = meta.taxonName,
+                                groupName = meta.group,
+                                minObs = meta.minObs,
+                                maxPhotos = meta.maxPhotos,
+                                source = DatasetSource.GBIF,
+                                gbifAreaIds = meta.gbifAreaIds,
+                                gbifYearsBack = meta.yearsBack ?: 10,
+                                gbifSampleSize = meta.gbifSampleSize
+                            )
+                        } else {
+                            val pIds = if (meta.placeIds.isNotEmpty()) meta.placeIds else listOf(meta.placeId)
+                            GenerationParams(
+                                placeIds = pIds,
+                                placeName = meta.placeName,
+                                taxonIds = tIds,
+                                taxonName = meta.taxonName,
+                                groupName = meta.group,
+                                minObs = meta.minObs,
+                                qualityGrade = meta.qualityGrade,
+                                maxPhotos = meta.maxPhotos
+                            )
+                        }
                         if (GenerationService.isRunning.value) {
                             GenerationService.enqueue(dsContext, updateParams)
                         } else {

@@ -21,7 +21,16 @@ data class DatasetMetadata(
     val generatedAt: String,
     val minObs: Int = 10,
     val qualityGrade: String = "research",
-    val maxPhotos: Int = 3
+    val maxPhotos: Int = 3,
+    // Origin of the occurrence data. "inaturalist" (default, back-compat) or "gbif".
+    // GBIF datasets sample real occurrences from the last [yearsBack] years for
+    // phenology, and borrow photos/descriptions from iNaturalist where a match exists.
+    val source: String = "inaturalist",
+    val yearsBack: Int? = null,
+    // GBIF-only: persisted so the dataset can be regenerated/updated. gbifAreaIds are
+    // GADM gadmGids (taxonIds above hold the GBIF backbone keys for GBIF datasets).
+    val gbifAreaIds: List<String> = emptyList(),
+    val gbifSampleSize: Int = 600
 )
 
 @Serializable

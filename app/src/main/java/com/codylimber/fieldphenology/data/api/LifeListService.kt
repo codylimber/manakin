@@ -41,7 +41,10 @@ class LifeListService(
         Log.d("LifeList", "Refreshing for '$datasetKey', user='$user'")
         val globalIds = apiClient.getUserSpeciesTaxonIds(user, taxonId, placeId = null)
         saveCachedIds(datasetKey, "global", globalIds)
-        val localIds = apiClient.getUserSpeciesTaxonIds(user, taxonId, placeId)
+        // GBIF datasets have no iNaturalist place (placeId 0), so a local, place-scoped
+        // lookup isn't possible — fall back to the global set instead of returning nothing.
+        val localIds = if (placeId > 0) apiClient.getUserSpeciesTaxonIds(user, taxonId, placeId)
+                       else globalIds
         saveCachedIds(datasetKey, "local", localIds)
         prefs.edit().putLong("last_sync_time", System.currentTimeMillis()).apply()
     }

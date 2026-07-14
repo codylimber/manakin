@@ -23,6 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.codylimber.fieldphenology.MainActivity
+import com.codylimber.fieldphenology.data.api.DatasetSource
+import com.codylimber.fieldphenology.data.api.GbifApiClient
 import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.navigation.GenerationParams
@@ -36,7 +39,9 @@ fun AddDatasetScreen(
     onBack: () -> Unit,
     onGenerate: () -> Unit,
     repository: PhenologyRepository? = null,
-    viewModel: AddDatasetViewModel = viewModel { AddDatasetViewModel(apiClient) }
+    viewModel: AddDatasetViewModel = viewModel {
+        AddDatasetViewModel(apiClient, GbifApiClient(MainActivity.sharedHttpClient))
+    }
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -80,45 +85,79 @@ fun AddDatasetScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Locations", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                FilterChip(
-                    selected = state.showAllPlaces,
-                    onClick = { viewModel.toggleShowAllPlaces() },
-                    label = { Text(if (state.showAllPlaces) "All Places" else "Regions Only", fontSize = 12.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Primary.copy(alpha = 0.15f),
-                        selectedLabelColor = Primary
+                if (state.isGbif) {
+                    Text("GBIF · GADM regions", color = Primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                } else {
+                    FilterChip(
+                        selected = state.showAllPlaces,
+                        onClick = { viewModel.toggleShowAllPlaces() },
+                        label = { Text(if (state.showAllPlaces) "All Places" else "Regions Only", fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Primary.copy(alpha = 0.15f),
+                            selectedLabelColor = Primary
+                        )
                     )
-                )
+                }
             }
+            val placeDropdownExpanded = state.showPlaceDropdown &&
+                (if (state.isGbif) state.gbifAreaResults.isNotEmpty() else state.filteredPlaceResults.isNotEmpty())
             ExposedDropdownMenuBox(
-                expanded = state.showPlaceDropdown && state.filteredPlaceResults.isNotEmpty(),
+                expanded = placeDropdownExpanded,
                 onExpandedChange = { }
             ) {
                 OutlinedTextField(
                     value = state.placeQuery,
                     onValueChange = { viewModel.onPlaceQueryChanged(it) },
-                    placeholder = { Text("Search for a place...") },
+                    placeholder = { Text(if (state.isGbif) "Search for a region or country..." else "Search for a place...") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
                     modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryEditable)
                 )
                 ExposedDropdownMenu(
-                    expanded = state.showPlaceDropdown && state.filteredPlaceResults.isNotEmpty(),
+                    expanded = placeDropdownExpanded,
                     onDismissRequest = { viewModel.dismissDropdowns() },
                     containerColor = MaterialTheme.colorScheme.surface
                 ) {
-                    state.filteredPlaceResults.forEach { place ->
-                        DropdownMenuItem(
-                            text = { Text(place.name, fontSize = 14.sp) },
-                            onClick = { viewModel.addPlace(place) }
-                        )
+                    if (state.isGbif) {
+                        state.gbifAreaResults.forEach { area ->
+                            DropdownMenuItem(
+                                text = { Text("${area.name}  ·  ${area.levelLabel}", fontSize = 14.sp) },
+                                onClick = { viewModel.addGbifArea(area) }
+                            )
+                        }
+                    } else {
+                        state.filteredPlaceResults.forEach { place ->
+                            DropdownMenuItem(
+                                text = { Text(place.name, fontSize = 14.sp) },
+                                onClick = { viewModel.addPlace(place) }
+                            )
+                        }
                     }
                 }
             }
 
             // Selected place chips
-            if (state.selectedPlaces.isNotEmpty()) {
+            if (state.isGbif) {
+                if (state.selectedGbifAreas.isNotEmpty()) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        state.selectedGbifAreas.forEach { area ->
+                            InputChip(
+                                selected = true,
+                                onClick = { viewModel.removeGbifArea(area) },
+                                label = { Text(area.name, fontSize = 13.sp) },
+                                trailingIcon = {
+                                    Icon(Icons.Default.Close, "Remove", modifier = Modifier.size(16.dp))
+                                },
+                                colors = InputChipDefaults.inputChipColors(
+                                    selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                    selectedLabelColor = Primary
+                                )
+                            )
+                        }
+                    }
+                }
+            } else if (state.selectedPlaces.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     state.selectedPlaces.forEach { place ->
                         InputChip(
@@ -176,7 +215,7 @@ fun AddDatasetScreen(
 
             // Favorite taxa quick-add — tap a favorite to add it, or add them all.
             // Lets you reload your usual groups in one tap when starting a new place.
-            val availableFavorites = AppSettings.favoriteTaxa.filter { fav ->
+            val availableFavorites = if (state.isGbif) emptyList() else AppSettings.favoriteTaxa.filter { fav ->
                 state.selectedTaxons.none { it.id == fav.id }
             }
             if (availableFavorites.isNotEmpty()) {
@@ -262,6 +301,78 @@ fun AddDatasetScreen(
 
             AnimatedVisibility(visible = state.showAdvanced) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Data source
+                    Text("Data Source", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = state.source == DatasetSource.INAT,
+                            onClick = { viewModel.onSourceChanged(DatasetSource.INAT) },
+                            label = { Text("iNaturalist", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                selectedLabelColor = Primary
+                            )
+                        )
+                        FilterChip(
+                            selected = state.source == DatasetSource.GBIF,
+                            onClick = { viewModel.onSourceChanged(DatasetSource.GBIF) },
+                            label = { Text("GBIF", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                selectedLabelColor = Primary
+                            )
+                        )
+                    }
+                    if (state.isGbif) {
+                        Text(
+                            "GBIF has far more data than iNaturalist. Phenology is sampled from real " +
+                                "occurrences over the last few years; photos and descriptions are borrowed " +
+                                "from iNaturalist where a match exists.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+
+                        // Years of history
+                        Text("Years of History", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Only include occurrences from the last N years. Lower = smaller, more current.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                        OutlinedTextField(
+                            value = state.gbifYearsBack,
+                            onValueChange = { viewModel.onGbifYearsBackChanged(it) },
+                            placeholder = { Text("10") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
+                            modifier = Modifier.width(120.dp)
+                        )
+
+                        // Phenology sample size
+                        Text("Phenology Sample Size", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Occurrences sampled per species to build its weekly curve. Higher = more " +
+                                "accurate phenology but slower and more data.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                        OutlinedTextField(
+                            value = state.gbifSampleSize,
+                            onValueChange = { viewModel.onGbifSampleSizeChanged(it) },
+                            placeholder = { Text("600") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary),
+                            modifier = Modifier.width(120.dp)
+                        )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
                     // Min observations
                     Text("Minimum Observations", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text(
@@ -280,27 +391,29 @@ fun AddDatasetScreen(
                         modifier = Modifier.width(120.dp)
                     )
 
-                    // Quality grade
-                    Text("Quality Grade", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = state.qualityGrade == "research",
-                            onClick = { viewModel.onQualityGradeChanged("research") },
-                            label = { Text("Research Grade", fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Primary.copy(alpha = 0.15f),
-                                selectedLabelColor = Primary
+                    // Quality grade (iNaturalist only)
+                    if (!state.isGbif) {
+                        Text("Quality Grade", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = state.qualityGrade == "research",
+                                onClick = { viewModel.onQualityGradeChanged("research") },
+                                label = { Text("Research Grade", fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                    selectedLabelColor = Primary
+                                )
                             )
-                        )
-                        FilterChip(
-                            selected = state.qualityGrade == "research,needs_id",
-                            onClick = { viewModel.onQualityGradeChanged("research,needs_id") },
-                            label = { Text("+ Needs ID", fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Primary.copy(alpha = 0.15f),
-                                selectedLabelColor = Primary
+                            FilterChip(
+                                selected = state.qualityGrade == "research,needs_id",
+                                onClick = { viewModel.onQualityGradeChanged("research,needs_id") },
+                                label = { Text("+ Needs ID", fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                    selectedLabelColor = Primary
+                                )
                             )
-                        )
+                        }
                     }
 
                     // Max photos
@@ -414,22 +527,38 @@ fun AddDatasetScreen(
             // Generate button
             Button(
                 onClick = {
-                    val places = state.selectedPlaces
                     val taxons = state.selectedTaxons
-                    val placeName = places.joinToString(", ") { it.name }
                     val taxonName = taxons.joinToString(", ") { it.commonName.ifEmpty { it.scientificName } }
                     val taxonIds = taxons.map { it.id }
 
-                    GenerationParams.current = GenerationParams(
-                        placeIds = places.map { it.id },
-                        placeName = placeName,
-                        taxonIds = taxonIds,
-                        taxonName = taxonName,
-                        groupName = state.groupLabel,
-                        minObs = state.minObs.toIntOrNull() ?: 1,
-                        qualityGrade = state.qualityGrade,
-                        maxPhotos = state.maxPhotos.toIntOrNull() ?: 3
-                    )
+                    GenerationParams.current = if (state.isGbif) {
+                        val areas = state.selectedGbifAreas
+                        GenerationParams(
+                            placeIds = emptyList(),
+                            placeName = areas.joinToString(", ") { it.name },
+                            taxonIds = taxonIds,
+                            taxonName = taxonName,
+                            groupName = state.groupLabel,
+                            minObs = state.minObs.toIntOrNull() ?: 1,
+                            maxPhotos = state.maxPhotos.toIntOrNull() ?: 3,
+                            source = DatasetSource.GBIF,
+                            gbifAreaIds = areas.map { it.id },
+                            gbifYearsBack = state.gbifYearsBack.toIntOrNull()?.coerceAtLeast(1) ?: 10,
+                            gbifSampleSize = state.gbifSampleSize.toIntOrNull()?.coerceAtLeast(60) ?: 600
+                        )
+                    } else {
+                        val places = state.selectedPlaces
+                        GenerationParams(
+                            placeIds = places.map { it.id },
+                            placeName = places.joinToString(", ") { it.name },
+                            taxonIds = taxonIds,
+                            taxonName = taxonName,
+                            groupName = state.groupLabel,
+                            minObs = state.minObs.toIntOrNull() ?: 1,
+                            qualityGrade = state.qualityGrade,
+                            maxPhotos = state.maxPhotos.toIntOrNull() ?: 3
+                        )
+                    }
                     onGenerate()
                 },
                 enabled = state.canGenerate,

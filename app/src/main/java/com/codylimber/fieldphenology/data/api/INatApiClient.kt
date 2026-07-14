@@ -248,6 +248,27 @@ class INatApiClient(private val client: OkHttpClient) {
         }.filterKeys { it in 1..53 }
     }
 
+    /**
+     * Resolve a scientific name to an iNaturalist taxon id (used to borrow photos and
+     * descriptions for GBIF-sourced species). Prefers an exact scientific-name match.
+     * Results are cached, so repeated names cost nothing.
+     */
+    suspend fun resolveTaxonIdByName(name: String): Int? {
+        if (name.isBlank()) return null
+        val data = get(
+            "taxa/autocomplete",
+            mapOf("q" to name, "per_page" to "5", "fields" to "(name:!t,rank:!t)"),
+            intervalMs = INTERACTIVE_INTERVAL_MS,
+            useCache = true
+        )
+        val results = try { data["results"]?.jsonArray } catch (_: Exception) { null } ?: return null
+        val exact = results.firstOrNull {
+            it.jsonObject["name"]?.jsonPrimitive?.contentOrNull.equals(name, ignoreCase = true)
+        }
+        return (exact ?: results.firstOrNull())
+            ?.jsonObject?.get("id")?.jsonPrimitive?.intOrNull
+    }
+
     suspend fun getTaxaDetails(taxonIds: List<Int>): List<JsonObject> {
         val idsStr = taxonIds.take(30).joinToString(",")
         val data = get(
