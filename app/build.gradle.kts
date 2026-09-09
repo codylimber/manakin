@@ -97,8 +97,8 @@ dependencies {
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.glance:glance-material3:1.1.1")
 
-    // Map
-    implementation("org.osmdroid:osmdroid-android:6.1.20")
+    // Map — MapLibre GL renders OpenFreeMap's keyless OSM vector tiles.
+    implementation("org.maplibre.gl:android-sdk:11.13.5")
 
     // Image loading
     implementation("io.coil-kt.coil3:coil-compose:3.0.4")

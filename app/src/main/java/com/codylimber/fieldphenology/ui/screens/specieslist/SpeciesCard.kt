@@ -37,7 +37,9 @@ import com.codylimber.fieldphenology.ui.components.StatusBadge
 import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.ui.theme.FavoriteGold
 import com.codylimber.fieldphenology.ui.theme.ObservedBlue
+import com.codylimber.fieldphenology.ui.theme.CardShape
 import com.codylimber.fieldphenology.ui.theme.Primary
+import com.codylimber.fieldphenology.ui.theme.ThumbShape
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -86,7 +88,7 @@ fun SpeciesCard(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(CardShape)
                     .background(bgColor)
                     .padding(start = 16.dp),
                 contentAlignment = Alignment.CenterStart
@@ -142,7 +144,7 @@ fun SpeciesCard(
                         context.startActivity(Intent.createChooser(intent, "Share species"))
                     }
                 ),
-            shape = RoundedCornerShape(12.dp),
+            shape = CardShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(modifier = Modifier.padding(12.dp).fillMaxWidth()) {
@@ -152,10 +154,15 @@ fun SpeciesCard(
                         model = ImageRequest.Builder(LocalContext.current).data(photoUri).build(),
                         contentDescription = species.commonName,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp))
+                        modifier = Modifier.size(56.dp).clip(ThumbShape)
                     )
                 } else {
-                    Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)))
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(ThumbShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -207,7 +214,11 @@ fun SpeciesCard(
                         Column(horizontalAlignment = Alignment.End) {
                             StatusBadge(status = status)
                             if (activityPercent > 0) {
-                                Text("${activityPercent}%", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                                Text(
+                                    "$activityPercent%",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
                             }
                         }
                     }

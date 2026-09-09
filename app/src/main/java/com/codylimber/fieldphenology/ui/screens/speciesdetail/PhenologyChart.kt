@@ -26,6 +26,10 @@ fun PhenologyChart(
     modifier: Modifier = Modifier
 ) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    // Read theme colors here: the Canvas lambda below is a DrawScope, not a
+    // composable scope, so it can't reach MaterialTheme itself.
+    val barColor = Primary
+    val inkColor = MaterialTheme.colorScheme.onSurface
     val monthLabelPaint = remember(labelColor) {
         android.graphics.Paint().apply {
             color = android.graphics.Color.argb(
@@ -50,7 +54,7 @@ fun PhenologyChart(
         for (frac in listOf(0.25f, 0.5f, 0.75f)) {
             val y = chartHeight * (1f - frac)
             drawLine(
-                color = Color.White.copy(alpha = 0.08f),
+                color = inkColor.copy(alpha = 0.10f),
                 start = Offset(0f, y),
                 end = Offset(w, y),
                 strokeWidth = 1f
@@ -66,7 +70,7 @@ fun PhenologyChart(
                 val isPeak = entry.week == peakWeek
                 val alpha = if (isPeak) 1f else 0.3f + 0.7f * entry.relAbundance
                 drawRect(
-                    color = Primary.copy(alpha = alpha),
+                    color = barColor.copy(alpha = alpha),
                     topLeft = Offset(x + gap / 2, chartHeight - barH),
                     size = Size(barWidth - gap, barH)
                 )
@@ -77,7 +81,7 @@ fun PhenologyChart(
         if (currentWeek in 1..53) {
             val cx = (currentWeek - 0.5f) * barWidth
             drawLine(
-                color = Color.White.copy(alpha = 0.8f),
+                color = inkColor.copy(alpha = 0.7f),
                 start = Offset(cx, 0f),
                 end = Offset(cx, chartHeight),
                 strokeWidth = 2f,

@@ -25,11 +25,12 @@ import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.theme.AppSettings
 import com.codylimber.fieldphenology.ui.theme.FavoriteGold
 import com.codylimber.fieldphenology.ui.theme.Primary
-import com.codylimber.fieldphenology.ui.theme.RarityRare
-import com.codylimber.fieldphenology.ui.theme.StatusActive
-import com.codylimber.fieldphenology.ui.theme.StatusEarlyLate
-import com.codylimber.fieldphenology.ui.theme.StatusInactive
-import com.codylimber.fieldphenology.ui.theme.StatusPeak
+import com.codylimber.fieldphenology.ui.theme.LocalIsDarkTheme
+import com.codylimber.fieldphenology.ui.theme.RarityRareRole
+import com.codylimber.fieldphenology.ui.theme.StatusActiveRole
+import com.codylimber.fieldphenology.ui.theme.StatusEdgeRole
+import com.codylimber.fieldphenology.ui.theme.StatusInactiveRole
+import com.codylimber.fieldphenology.ui.theme.StatusPeakRole
 import java.time.LocalDate
 import java.time.temporal.IsoFields
 
@@ -247,16 +248,20 @@ private fun EventCard(event: TimelineEvent, repository: PhenologyRepository, onS
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            // These are label colors on the page background, so they have to
+            // take the tone that suits the active theme — the bright dark-mode
+            // greens and ambers are barely legible on the light background.
+            val dark = LocalIsDarkTheme.current
             val (label, color) = when (event.type) {
-                TimelineEventType.ENTERED_PEAK -> "Peak" to StatusPeak
-                TimelineEventType.NEWLY_ACTIVE -> "Active" to StatusActive
+                TimelineEventType.ENTERED_PEAK -> "Peak" to StatusPeakRole.solid(dark)
+                TimelineEventType.NEWLY_ACTIVE -> "Active" to StatusActiveRole.solid(dark)
                 TimelineEventType.APPROACHING_PEAK -> "Rising" to Primary
-                TimelineEventType.LEFT_PEAK -> "Declining" to StatusEarlyLate
-                TimelineEventType.BECAME_INACTIVE -> "Inactive" to StatusInactive
-                TimelineEventType.LAST_CHANCE -> "Last Chance" to RarityRare
-                TimelineEventType.COMING_SOON -> "Soon" to StatusActive
-                TimelineEventType.RARE_AND_ACTIVE -> "Rare" to RarityRare
-                TimelineEventType.PEAK_THIS_WEEK -> "Peak" to StatusPeak
+                TimelineEventType.LEFT_PEAK -> "Declining" to StatusEdgeRole.solid(dark)
+                TimelineEventType.BECAME_INACTIVE -> "Inactive" to StatusInactiveRole.solid(dark)
+                TimelineEventType.LAST_CHANCE -> "Last Chance" to RarityRareRole.solid(dark)
+                TimelineEventType.COMING_SOON -> "Soon" to StatusActiveRole.solid(dark)
+                TimelineEventType.RARE_AND_ACTIVE -> "Rare" to RarityRareRole.solid(dark)
+                TimelineEventType.PEAK_THIS_WEEK -> "Peak" to StatusPeakRole.solid(dark)
             }
             Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = color)
         }

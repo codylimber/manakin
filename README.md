@@ -134,6 +134,7 @@ manakin/
 - **OkHttp** for networking
 - **kotlinx.serialization** for JSON
 - **Coil 3** for image loading
+- **MapLibre GL** for the observation map, over **OpenFreeMap** vector tiles (no API key)
 - **WorkManager** for background notifications
 - **Glance** for home screen widgets
 
@@ -153,6 +154,9 @@ All species data comes from [iNaturalist](https://www.inaturalist.org), a commun
 Only Creative Commons licensed photos are used. Individual attributions are displayed on each photo.
 
 Species descriptions are from Wikipedia (CC-BY-SA).
+
+Base map tiles are served by [OpenFreeMap](https://openfreemap.org) © OpenMapTiles, built from
+[OpenStreetMap](https://www.openstreetmap.org/copyright) data © OpenStreetMap contributors.
 
 Manakin is not affiliated with or endorsed by iNaturalist.
 

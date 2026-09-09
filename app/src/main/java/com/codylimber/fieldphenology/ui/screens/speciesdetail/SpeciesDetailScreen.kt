@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codylimber.fieldphenology.data.api.LifeListService
+import com.codylimber.fieldphenology.ui.map.SpeciesMapView
 import com.codylimber.fieldphenology.data.model.Species
 import com.codylimber.fieldphenology.data.model.SpeciesStatus
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
@@ -278,12 +279,15 @@ fun SpeciesDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(220.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable { onOpenMap(species.taxonId, placeId) }
                 ) {
+                    // Preview only: gestures off so it can't fight the page
+                    // scroll, and the whole box opens the full map instead.
                     SpeciesMapView(
                         taxonId = species.taxonId,
                         placeId = placeId,
+                        interactive = false,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -338,7 +342,7 @@ fun SpeciesDetailScreen(
 @Composable
 private fun KeyFactsCard(species: Species) {
     Card(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(

@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import com.codylimber.fieldphenology.data.model.WeeklyEntry
 import com.codylimber.fieldphenology.ui.theme.Primary
@@ -16,6 +17,8 @@ fun MiniBarChart(
     modifier: Modifier = Modifier,
     barColor: Color = Primary
 ) {
+    // Captured outside the DrawScope, which has no access to MaterialTheme.
+    val markerColor = MaterialTheme.colorScheme.onSurface
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
@@ -41,7 +44,7 @@ fun MiniBarChart(
         if (currentWeek in 1..53) {
             val cx = (currentWeek - 0.5f) * barWidth
             drawLine(
-                color = Color.White.copy(alpha = 0.7f),
+                color = markerColor.copy(alpha = 0.55f),
                 start = Offset(cx, 0f),
                 end = Offset(cx, h),
                 strokeWidth = 1.5f

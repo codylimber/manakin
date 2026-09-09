@@ -50,7 +50,7 @@ import com.codylimber.fieldphenology.ui.screens.timeline.TimelineScreen
 import com.codylimber.fieldphenology.ui.screens.tripreport.TripReportScreen
 import com.codylimber.fieldphenology.ui.screens.settings.SettingsScreen
 import com.codylimber.fieldphenology.ui.screens.speciesdetail.SpeciesDetailScreen
-import com.codylimber.fieldphenology.ui.screens.speciesdetail.SpeciesMapScreen
+import com.codylimber.fieldphenology.ui.map.SpeciesMapScreen
 import com.codylimber.fieldphenology.ui.screens.specieslist.SpeciesListScreen
 import com.codylimber.fieldphenology.ui.screens.targets.TargetsScreen
 import com.codylimber.fieldphenology.ui.theme.LocalBottomPadding
