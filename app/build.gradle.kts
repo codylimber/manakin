@@ -24,7 +24,7 @@ android {
         applicationId = "com.manakin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
+        versionCode = 9
         versionName = "1.5"
     }
 
