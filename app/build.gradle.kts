@@ -18,13 +18,13 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.codylimber.fieldphenology"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.manakin.app"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 7
+        targetSdk = 36
+        versionCode = 8
         versionName = "1.5"
     }
 
