@@ -96,6 +96,21 @@ fun MainScreen(
     LaunchedEffect(generationComplete) {
         if (generationComplete) {
             repository.reloadDatasets()
+            // A brand-new pack has no place-scoped observations yet, so "New for Area"
+            // would fall back to the global set until the next manual sync. Fetch them now.
+            if (lifeListService.hasUsername()) {
+                for (key in repository.getKeys()) {
+                    val meta = repository.getDataset(key)?.metadata ?: continue
+                    if (lifeListService.hasLocalObservations(key)) continue
+                    try {
+                        lifeListService.refreshForDataset(key, taxonId = null, placeId = meta.placeId)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (_: Throwable) {
+                        // Non-fatal: the cached global set still drives checkmarks.
+                    }
+                }
+            }
         }
     }
 

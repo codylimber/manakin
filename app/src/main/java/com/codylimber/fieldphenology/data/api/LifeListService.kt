@@ -40,7 +40,11 @@ class LifeListService(
         if (user.isBlank()) return
         Log.d("LifeList", "Refreshing for '$datasetKey', user='$user'")
         val globalIds = apiClient.getUserSpeciesTaxonIds(user, taxonId, placeId = null)
-        saveCachedIds(datasetKey, "global", globalIds)
+        // An unfiltered global lookup is the same for every dataset, so it is cached once
+        // under a shared key. Caching it per dataset used to leave a pack added after the
+        // last sync with no observations at all, which hid its checkmarks in Explore while
+        // Targets (which unioned every pack) still treated those species as seen.
+        if (taxonId == null) saveGlobalIds(globalIds) else saveCachedIds(datasetKey, "global", globalIds)
         // GBIF datasets have no iNaturalist place (placeId 0), so a local, place-scoped
         // lookup isn't possible — fall back to the global set instead of returning nothing.
         val localIds = if (placeId > 0) apiClient.getUserSpeciesTaxonIds(user, taxonId, placeId)
@@ -49,14 +53,31 @@ class LifeListService(
         prefs.edit().putLong("last_sync_time", System.currentTimeMillis()).apply()
     }
 
-    fun getObservedGlobal(datasetKey: String): Set<Int> = loadCachedIds(datasetKey, "global")
-    fun getObservedLocal(datasetKey: String): Set<Int> = loadCachedIds(datasetKey, "local")
+    /** Species observed anywhere. Not dataset-specific — one cache serves every pack. */
+    fun getObservedGlobal(): Set<Int> {
+        val shared = loadGlobalIds()
+        if (shared.isNotEmpty()) return shared
+        // Caches written before the global set was shared were stored per dataset.
+        return legacyPerDatasetGlobalIds()
+    }
+
+    /**
+     * Species observed inside this dataset's place. A pack that has never been
+     * place-synced falls back to the global set so it isn't shown as "nothing seen".
+     */
+    fun getObservedLocal(datasetKey: String): Set<Int> =
+        if (hasLocalObservations(datasetKey)) loadCachedIds(datasetKey, "local")
+        else getObservedGlobal()
 
     fun getObservedForScope(datasetKey: String): Set<Int> =
         when (observationScope) {
-            ObservationScope.ANYWHERE -> getObservedGlobal(datasetKey)
+            ObservationScope.ANYWHERE -> getObservedGlobal()
             ObservationScope.HERE -> getObservedLocal(datasetKey)
         }
+
+    /** True when this dataset has its own place-scoped cache (not the global fallback). */
+    fun hasLocalObservations(datasetKey: String): Boolean =
+        cacheFile(datasetKey, "local").exists()
 
     fun getLastSyncTime(): Long = prefs.getLong("last_sync_time", 0)
     fun hasUsername(): Boolean = username.isNotBlank()
@@ -145,12 +166,19 @@ class LifeListService(
         return File(cacheDir, "${slug}_$scope.json")
     }
 
-    private fun saveCachedIds(datasetKey: String, scope: String, ids: Set<Int>) {
-        cacheFile(datasetKey, scope).writeText(json.encodeToString(ids.toList()))
+    private fun globalCacheFile() = File(cacheDir, "observed_global.json")
+
+    private fun saveGlobalIds(ids: Set<Int>) {
+        globalCacheFile().writeText(json.encodeToString(ids.toList()))
     }
 
-    private fun loadCachedIds(datasetKey: String, scope: String): Set<Int> {
-        val file = cacheFile(datasetKey, scope)
+    private fun loadGlobalIds(): Set<Int> = readIdFile(globalCacheFile())
+
+    private fun legacyPerDatasetGlobalIds(): Set<Int> =
+        cacheDir.listFiles { f -> f.name.endsWith("_global.json") }
+            ?.flatMap { readIdFile(it) }?.toSet() ?: emptySet()
+
+    private fun readIdFile(file: File): Set<Int> {
         if (!file.exists()) return emptySet()
         return try {
             json.decodeFromString<List<Int>>(file.readText()).toSet()
@@ -158,6 +186,13 @@ class LifeListService(
             emptySet()
         }
     }
+
+    private fun saveCachedIds(datasetKey: String, scope: String, ids: Set<Int>) {
+        cacheFile(datasetKey, scope).writeText(json.encodeToString(ids.toList()))
+    }
+
+    private fun loadCachedIds(datasetKey: String, scope: String): Set<Int> =
+        readIdFile(cacheFile(datasetKey, scope))
 }
 
 enum class ObservationScope {

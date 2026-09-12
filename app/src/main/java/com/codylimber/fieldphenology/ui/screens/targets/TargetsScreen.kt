@@ -58,14 +58,17 @@ fun TargetsScreen(
     val showActiveOnly = AppSettings.showActiveOnly
     val keys = repository.getKeys()
     // Use shared dataset selection from AppSettings
-    var selectedKeys = AppSettings.selectedDatasetKeys.ifEmpty { keys.toSet() }
+    var selectedKeys = AppSettings.selectedDatasetKeys.filter { it in keys }.toSet().ifEmpty { keys.toSet() }
     val hasLifeList = lifeListService?.hasUsername() == true
 
-    // Build all species across datasets
-    val allSpecies = remember(keys, favorites) {
+    // Build the species list from the selected datasets only, deduping within them. Building
+    // across every dataset and filtering by key afterwards dropped any species that also
+    // lives in an unselected pack, because dedupe kept only the first pack's copy.
+    val selectedKeyList = remember(keys, selectedKeys) { keys.filter { it in selectedKeys } }
+    val allSpecies = remember(selectedKeyList, favorites) {
         val list = mutableListOf<TargetSpecies>()
         val seen = mutableSetOf<Int>()
-        for (key in keys) {
+        for (key in selectedKeyList) {
             val groupName = repository.getGroupName(key)
             for (sp in repository.getSpeciesForKey(key)) {
                 if (sp.taxonId in seen) continue
@@ -78,14 +81,16 @@ fun TargetsScreen(
         list
     }
 
-    // Observed sets
-    val observedGlobal = remember(keys) {
-        if (lifeListService == null || !lifeListService.hasUsername()) emptySet()
-        else keys.flatMap { lifeListService.getObservedGlobal(it) }.toSet()
+    // Observed sets. Re-read after a sync, and scope "seen here" to the selected packs so
+    // Targets and Explore agree about what counts as observed.
+    val lastSync = lifeListService?.getLastSyncTime() ?: 0L
+    val observedGlobal = remember(lastSync, hasLifeList) {
+        if (lifeListService == null || !hasLifeList) emptySet()
+        else lifeListService.getObservedGlobal()
     }
-    val observedLocal = remember(keys) {
-        if (lifeListService == null || !lifeListService.hasUsername()) emptySet()
-        else keys.flatMap { lifeListService.getObservedLocal(it) }.toSet()
+    val observedLocal = remember(selectedKeyList, lastSync, hasLifeList) {
+        if (lifeListService == null || !hasLifeList) emptySet()
+        else selectedKeyList.flatMap { lifeListService.getObservedLocal(it) }.toSet()
     }
 
     // Filter by mode
@@ -94,9 +99,6 @@ fun TargetsScreen(
         TargetMode.NOT_SEEN_HERE -> allSpecies.filter { it.species.taxonId !in observedLocal }
         TargetMode.NOT_SEEN_ANYWHERE -> allSpecies.filter { it.species.taxonId !in observedGlobal }
     }
-
-    // Filter by dataset
-    filtered = filtered.filter { it.key in selectedKeys }
 
     // Filter by active
     if (showActiveOnly) {

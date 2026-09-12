@@ -262,11 +262,33 @@ class INatApiClient(private val client: OkHttpClient) {
             useCache = true
         )
         val results = try { data["results"]?.jsonArray } catch (_: Exception) { null } ?: return null
-        val exact = results.firstOrNull {
-            it.jsonObject["name"]?.jsonPrimitive?.contentOrNull.equals(name, ignoreCase = true)
+        data class Candidate(val id: Int, val name: String, val rank: String)
+        val candidates = results.mapNotNull { r ->
+            val o = try { r.jsonObject } catch (_: Exception) { return@mapNotNull null }
+            val id = o["id"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
+            Candidate(
+                id = id,
+                name = o["name"]?.jsonPrimitive?.contentOrNull ?: "",
+                rank = o["rank"]?.jsonPrimitive?.contentOrNull ?: ""
+            )
         }
-        return (exact ?: results.firstOrNull())
-            ?.jsonObject?.get("id")?.jsonPrimitive?.intOrNull
+        candidates.firstOrNull { it.rank == "species" && it.name.equals(name, ignoreCase = true) }
+            ?.let { return it.id }
+        candidates.firstOrNull { it.name.equals(name, ignoreCase = true) }?.let { return it.id }
+
+        // Genus reassignments between checklists are common (GBIF's "Cupido comyntas" is
+        // iNaturalist's "Everes comyntas"), so accept a species that agrees on the specific
+        // epithet even when the genus differs.
+        val epithet = name.trim().split(Regex("\\s+")).getOrNull(1)?.lowercase()
+        if (epithet != null) {
+            candidates.firstOrNull {
+                it.rank == "species" && it.name.split(" ").getOrNull(1)?.lowercase() == epithet
+            }?.let { return it.id }
+        }
+
+        // Taking the top hit regardless would silently attach an unrelated taxon, which shows
+        // the wrong photos and breaks the "already seen" checkmark. Report no match instead.
+        return null
     }
 
     suspend fun getTaxaDetails(taxonIds: List<Int>): List<JsonObject> {
