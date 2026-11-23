@@ -1,6 +1,8 @@
 package com.codylimber.fieldphenology.ui.screens.timeline
 
 import com.codylimber.fieldphenology.data.model.abundanceAt
+import com.codylimber.fieldphenology.data.model.nextIsoWeek
+import com.codylimber.fieldphenology.data.model.previousIsoWeek
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,10 +56,12 @@ fun TimelineScreen(
     onBack: () -> Unit,
     onSpeciesClick: (Int) -> Unit
 ) {
-    val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
-    val lastWeek = if (currentWeek > 1) currentWeek - 1 else 53
-    val nextWeek = if (currentWeek < 53) currentWeek + 1 else 1
-    val selectedKeys = AppSettings.selectedDatasetKeys.ifEmpty { repository.getKeys().toSet() }
+    val today = LocalDate.now()
+    val currentWeek = today.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+    val lastWeek = previousIsoWeek(today)
+    val nextWeek = nextIsoWeek(today)
+    val allKeys = repository.getKeys()
+    val selectedKeys = AppSettings.selectedDatasetKeys.filter { it in allKeys }.toSet().ifEmpty { allKeys.toSet() }
 
     val events = remember(selectedKeys) {
         val list = mutableListOf<TimelineEvent>()
@@ -102,7 +106,7 @@ fun TimelineScreen(
                 }
 
                 // Highlight events
-                if (sp.rarity == "rare" && thisAbundance > 0f) {
+                if (sp.rarity.equals("Rare", ignoreCase = true) && thisAbundance > 0f) {
                     addEvent(sp, key, TimelineEventType.RARE_AND_ACTIVE)
                 }
                 if (thisAbundance >= 0.8f && sp.taxonId !in enteredPeakIds) {

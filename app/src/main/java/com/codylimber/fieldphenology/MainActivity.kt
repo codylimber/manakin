@@ -33,6 +33,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         intent.getStringExtra("deeplink_route")?.let { route ->
             navController?.navigate(route)
         }
@@ -51,6 +52,29 @@ class MainActivity : ComponentActivity() {
                 }
                 .build()
         }
+
+        // Process-wide singletons. These used to be rebuilt in every onCreate (e.g. on
+        // rotation), while ViewModels kept the first instances, so screens and ViewModels
+        // could end up reading different repositories, each re-parsing every pack.
+        @Volatile private var repositoryInstance: PhenologyRepository? = null
+        @Volatile private var apiClientInstance: INatApiClient? = null
+        @Volatile private var lifeListServiceInstance: LifeListService? = null
+
+        fun repository(context: android.content.Context): PhenologyRepository =
+            repositoryInstance ?: synchronized(this) {
+                repositoryInstance ?: PhenologyRepository(context.applicationContext).also { repositoryInstance = it }
+            }
+
+        fun apiClient(): INatApiClient =
+            apiClientInstance ?: synchronized(this) {
+                apiClientInstance ?: INatApiClient(sharedHttpClient).also { apiClientInstance = it }
+            }
+
+        fun lifeListService(context: android.content.Context): LifeListService =
+            lifeListServiceInstance ?: synchronized(this) {
+                lifeListServiceInstance ?: LifeListService(apiClient(), context.applicationContext)
+                    .also { lifeListServiceInstance = it }
+            }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,10 +83,10 @@ class MainActivity : ComponentActivity() {
 
         val widgetDeepLink = intent?.getStringExtra("deeplink_route")
 
-        val repository = PhenologyRepository(applicationContext)
-        val apiClient = INatApiClient(sharedHttpClient)
+        val repository = repository(this)
+        val apiClient = apiClient()
         val generator = DatasetGenerator(apiClient, applicationContext)
-        val lifeListService = LifeListService(apiClient, applicationContext)
+        val lifeListService = lifeListService(this)
 
         val prefs = getSharedPreferences("manakin_prefs", MODE_PRIVATE)
         ThemeState.isDarkMode = prefs.getBoolean("dark_mode", true)

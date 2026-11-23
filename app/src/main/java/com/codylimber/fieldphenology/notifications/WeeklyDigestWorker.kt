@@ -102,8 +102,10 @@ class WeeklyDigestWorker(
         val notifKeys = prefs.getStringSet("notification_dataset_keys", emptySet()) ?: emptySet()
         val keys = if (notifKeys.isEmpty()) repository.getKeys() else repository.getKeys().filter { it in notifKeys }
 
-        val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
-        val lastWeek = if (currentWeek > 1) currentWeek - 1 else 53
+        val todayDate = LocalDate.now()
+        val currentWeek = todayDate.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+        val lastWeek = com.codylimber.fieldphenology.data.model.previousIsoWeek(todayDate)
+        val nextWeek = com.codylimber.fieldphenology.data.model.nextIsoWeek(todayDate)
 
         createChannel(applicationContext)
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
@@ -170,7 +172,7 @@ class WeeklyDigestWorker(
                         val name = sp.commonName.ifEmpty { sp.scientificName }
                         if (sp.peakWeek == currentWeek) {
                             targetAtPeak.add(name)
-                        } else if (sp.peakWeek == (currentWeek + 2 - 1) % 53 + 1) {
+                        } else if (sp.peakWeek == nextWeek) {
                             targetApproaching.add(name)
                         }
                     }

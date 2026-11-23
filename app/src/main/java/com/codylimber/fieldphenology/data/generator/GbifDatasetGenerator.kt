@@ -150,7 +150,7 @@ class GbifDatasetGenerator(
         onProgress(GenerationProgress(GenerationPhase.FETCHING_DETAILS, 0, nSpecies, "Matching to iNaturalist..."))
         val inatIdByKey = mutableMapOf<Int, Int>() // gbif speciesKey -> iNat taxon id
         for ((i, sp) in raws.withIndex()) {
-            val inatId = try { inat.resolveTaxonIdByName(sp.scientificName) } catch (_: Exception) { null }
+            val inatId = try { inat.resolveTaxonIdByName(sp.scientificName) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
             if (inatId != null) inatIdByKey[sp.taxonId] = inatId
             onProgress(GenerationProgress(GenerationPhase.FETCHING_DETAILS, i + 1, nSpecies,
                 "Matching: ${sp.commonName.ifEmpty { sp.scientificName }} (${i + 1}/$nSpecies)"))
@@ -160,7 +160,7 @@ class GbifDatasetGenerator(
         val inatIds = inatIdByKey.values.distinct()
         for (i in inatIds.indices step 30) {
             val batch = inatIds.subList(i, minOf(i + 30, inatIds.size))
-            val results = try { inat.getTaxaDetails(batch, includeProfile = true) } catch (_: Exception) { emptyList() }
+            val results = try { inat.getTaxaDetails(batch, includeProfile = true) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { emptyList() }
             for (t in results) {
                 val id = t["id"]?.jsonPrimitive?.intOrNull ?: continue
                 inatDetails[id] = t

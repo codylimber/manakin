@@ -57,7 +57,9 @@ class INatApiClient(private val client: OkHttpClient) {
     ): JsonObject {
         if (useCache) {
             val key = cacheKey("$baseUrl/$endpoint", params)
-            cache[key]?.let { return it }
+            // The client is shared across UI, generation and workers; an access-ordered
+            // LinkedHashMap mutates on get(), so every touch is synchronized.
+            synchronized(cache) { cache[key] }?.let { return it }
         }
 
         val urlBuilder = StringBuilder("$baseUrl/$endpoint")
@@ -96,9 +98,12 @@ class INatApiClient(private val client: OkHttpClient) {
 
                 val result = json.parseToJsonElement(body).jsonObject
                 if (useCache) {
-                    cache[cacheKey("$baseUrl/$endpoint", params)] = result
-                    while (cache.size > MAX_CACHE_SIZE) {
-                        cache.remove(cache.keys.first())
+                    val key = cacheKey("$baseUrl/$endpoint", params)
+                    synchronized(cache) {
+                        cache[key] = result
+                        while (cache.size > MAX_CACHE_SIZE) {
+                            cache.remove(cache.keys.first())
+                        }
                     }
                 }
                 return result
@@ -357,7 +362,8 @@ class INatApiClient(private val client: OkHttpClient) {
             )
             if (taxonId != null) params["taxon_id"] = taxonId.toString()
             if (placeId != null) params["place_id"] = placeId.toString()
-            val data = get("observations/species_counts", params)
+            // Never cached: a second "Sync observations" in one session must see new records.
+            val data = get("observations/species_counts", params, useCache = false)
             val totalResults = data["total_results"]?.jsonPrimitive?.intOrNull ?: 0
             val results = data["results"]?.jsonArray ?: break
             for (r in results) {

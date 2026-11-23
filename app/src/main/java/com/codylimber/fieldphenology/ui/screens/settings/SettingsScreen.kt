@@ -52,6 +52,19 @@ fun SettingsScreen(
     onAbout: (() -> Unit)? = null
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    // Android 13+ drops notifications unless the user grants POST_NOTIFICATIONS at runtime.
+    val notificationPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { }
+    val ensureNotificationPermission = {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     var username by remember { mutableStateOf(lifeListService.username) }
     var scope by remember { mutableStateOf(lifeListService.observationScope) }
     var isSyncing by remember { mutableStateOf(false) }
@@ -351,6 +364,7 @@ fun SettingsScreen(
                         AppSettings.weeklyDigestEnabled = it
                         lifeListService.prefs.edit().putBoolean("weekly_digest_enabled", it).apply()
                         if (it) {
+                            ensureNotificationPermission()
                             com.codylimber.fieldphenology.notifications.WeeklyDigestWorker.schedule(
                                 context, AppSettings.digestHour
                             )
@@ -418,6 +432,7 @@ fun SettingsScreen(
                         AppSettings.targetNotificationsEnabled = it
                         lifeListService.prefs.edit().putBoolean("target_notifications_enabled", it).apply()
                         if (it) {
+                            ensureNotificationPermission()
                             com.codylimber.fieldphenology.notifications.WeeklyDigestWorker.schedule(
                                 context, AppSettings.digestHour
                             )

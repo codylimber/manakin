@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,8 +50,10 @@ fun SpeciesDetailScreen(
     onBack: () -> Unit,
     onOpenMap: (taxonId: Int, placeId: Int?) -> Unit = { _, _ -> }
 ) {
-    val species = repository.getSpeciesById(taxonId)
-    val key = repository.getKeyForSpecies(taxonId)
+    // Re-read when packs reload (e.g. this pack was just updated in the background).
+    val repoVersion = repository.version.collectAsState().value
+    val species = remember(repository, taxonId, repoVersion) { repository.getSpeciesById(taxonId) }
+    val key = remember(repository, taxonId, repoVersion) { repository.getKeyForSpecies(taxonId) }
 
     if (species == null || key == null) {
         Scaffold(
@@ -75,9 +79,11 @@ fun SpeciesDetailScreen(
     val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     val status = SpeciesStatus.classify(species, currentWeek)
     val context = LocalContext.current
-    val isObserved = lifeListService?.let { service ->
-        service.hasUsername() && taxonId in service.getObservedForScope(key)
-    } ?: false
+    val isObserved = remember(lifeListService, taxonId, key) {
+        lifeListService?.let { service ->
+            service.hasUsername() && taxonId in service.getObservedForScope(key)
+        } ?: false
+    }
 
     Scaffold(
         topBar = {
@@ -385,8 +391,9 @@ internal val dateFormat = DateTimeFormatter.ofPattern("MMM d")
 internal fun weekToDate(week: Int): String {
     if (week < 1 || week > 53) return "Week $week"
     val year = LocalDate.now().year
-    val date = LocalDate.of(year, 1, 1)
-        .with(WeekFields.ISO.weekOfWeekBasedYear(), week.toLong())
+    // Jan 4 is always in ISO week 1; step to the Monday of the requested week
+    val date = LocalDate.of(year, 1, 4)
         .with(WeekFields.ISO.dayOfWeek(), 1)
+        .plusWeeks((week - 1).toLong())
     return date.format(dateFormat)
 }

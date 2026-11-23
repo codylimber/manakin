@@ -66,14 +66,18 @@ fun CompareScreen(
         return
     }
 
-    var keyA by rememberSaveable { mutableStateOf(keys.getOrNull(0) ?: "") }
-    var keyB by rememberSaveable { mutableStateOf(keys.getOrNull(1) ?: "") }
+    var storedKeyA by rememberSaveable { mutableStateOf(keys.getOrNull(0) ?: "") }
+    var storedKeyB by rememberSaveable { mutableStateOf(keys.getOrNull(1) ?: "") }
+    // Saved keys can go stale (dataset deleted) or collide; coerce to existing, distinct keys.
+    val keyA = if (storedKeyA in keys) storedKeyA else keys.first { it != storedKeyB }
+    val keyB = if (storedKeyB in keys && storedKeyB != keyA) storedKeyB else keys.first { it != keyA }
     var expandedA by remember { mutableStateOf(false) }
     var expandedB by remember { mutableStateOf(false) }
     var viewMode by rememberSaveable { mutableStateOf(CompareViewMode.ALL) }
     val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     val hasLifeList = lifeListService?.hasUsername() == true
 
+    val compatibleKeysForA = keys.filter { it != keyB }
     val compatibleKeysForB = keys.filter { it != keyA }
     val observedIds = remember(keys) {
         if (lifeListService == null || !hasLifeList) emptySet()
@@ -82,22 +86,26 @@ fun CompareScreen(
     var sortMode by rememberSaveable { mutableStateOf(AppSettings.defaultSortMode) }
     var filterMode by rememberSaveable { mutableStateOf("ALL") } // ALL, UNSEEN, STARRED
 
+    val favorites = AppSettings.favorites
+    // Abundance is computed once per species per week, not inside the comparator.
     fun filterSpecies(species: Collection<Species>): List<Species> {
         var list = species.toList()
         if (filterMode == "UNSEEN" && hasLifeList) list = list.filter { it.taxonId !in observedIds }
-        if (filterMode == "STARRED") list = list.filter { AppSettings.isFavorite(it.taxonId) }
+        if (filterMode == "STARRED") list = list.filter { it.taxonId in favorites }
         return when (sortMode) {
             SortMode.NAME -> list.sortedBy { it.commonName.ifEmpty { it.scientificName }.lowercase() }
             SortMode.PEAK_DATE -> list.sortedBy { it.peakWeek }
             SortMode.TAXONOMY -> list.sortedWith(compareBy<Species> { it.order ?: "" }.thenBy { it.family ?: "" }.thenBy { it.scientificName })
-            SortMode.LIKELIHOOD -> list.sortedWith(compareBy<Species> {
-                val w = it.abundanceAt(currentWeek)
-                if (w > 0f) 0 else 1
-            }.thenByDescending {
-                val w = it.abundanceAt(currentWeek)
-                val logObs = if (it.totalObs > 0) kotlin.math.ln(it.totalObs.toDouble()) else 0.0
-                w * logObs
-            })
+            SortMode.LIKELIHOOD -> {
+                val weights = list.associate { it.taxonId to it.abundanceAt(currentWeek) }
+                list.sortedWith(compareBy<Species> {
+                    if ((weights[it.taxonId] ?: 0f) > 0f) 0 else 1
+                }.thenByDescending {
+                    val w = weights[it.taxonId] ?: 0f
+                    val logObs = if (it.totalObs > 0) kotlin.math.ln(it.totalObs.toDouble()) else 0.0
+                    w * logObs
+                })
+            }
         }
     }
 
@@ -107,6 +115,10 @@ fun CompareScreen(
     val onlyA = remember(speciesA, speciesB) { speciesA.filterKeys { it !in speciesB } }
     val onlyB = remember(speciesA, speciesB) { speciesB.filterKeys { it !in speciesA } }
     val shared = remember(speciesA, speciesB) { speciesA.filterKeys { it in speciesB } }
+
+    val filteredOnlyA = remember(onlyA, filterMode, sortMode, observedIds, hasLifeList, currentWeek, favorites) { filterSpecies(onlyA.values) }
+    val filteredSharedList = remember(shared, filterMode, sortMode, observedIds, hasLifeList, currentWeek, favorites) { filterSpecies(shared.values) }
+    val filteredOnlyB = remember(onlyB, filterMode, sortMode, observedIds, hasLifeList, currentWeek, favorites) { filterSpecies(onlyB.values) }
 
     val nameA = "${repository.getGroupName(keyA)} — ${repository.getPlaceNameForKey(keyA)}"
     val nameB = "${repository.getGroupName(keyB)} — ${repository.getPlaceNameForKey(keyB)}"
@@ -139,13 +151,13 @@ fun CompareScreen(
                             Text(repository.getPlaceNameForKey(keyA), fontSize = 13.sp, maxLines = 1)
                         }
                         DropdownMenu(expanded = expandedA, onDismissRequest = { expandedA = false }) {
-                            keys.forEach { key ->
+                            compatibleKeysForA.forEach { key ->
                                 DropdownMenuItem(text = {
                                     Column {
                                         Text(repository.getGroupName(key), fontSize = 14.sp)
                                         Text(repository.getPlaceNameForKey(key), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                }, onClick = { keyA = key; expandedA = false })
+                                }, onClick = { storedKeyA = key; expandedA = false })
                             }
                         }
                     }
@@ -169,7 +181,7 @@ fun CompareScreen(
                                         Text(repository.getGroupName(key), fontSize = 14.sp)
                                         Text(repository.getPlaceNameForKey(key), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                }, onClick = { keyB = key; expandedB = false })
+                                }, onClick = { storedKeyB = key; expandedB = false })
                             }
                         }
                     }
@@ -220,7 +232,7 @@ fun CompareScreen(
 
             // Only in A
             if (viewMode == CompareViewMode.ALL || viewMode == CompareViewMode.ONLY_A) {
-                val filteredA = filterSpecies(onlyA.values)
+                val filteredA = filteredOnlyA
                 if (filteredA.isNotEmpty()) {
                     item { Text("Only in $nameA (${filteredA.size})", color = Primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
                     items(filteredA) { sp ->
@@ -233,10 +245,9 @@ fun CompareScreen(
 
             // Shared
             if (viewMode == CompareViewMode.ALL || viewMode == CompareViewMode.SHARED) {
-                val filteredShared = filterSpecies(shared.values)
-                if (filteredShared.isNotEmpty()) {
-                    item { Text("In both (${filteredShared.size})", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
-                    items(filteredShared) { sp ->
+                if (filteredSharedList.isNotEmpty()) {
+                    item { Text("In both (${filteredSharedList.size})", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
+                    items(filteredSharedList) { sp ->
                         val photoUri = sp.photos.firstOrNull()?.let { repository.getPhotoUri(keyA, it.file) }
                         SpeciesCard(species = sp, status = SpeciesStatus.classify(sp, currentWeek), currentWeek = currentWeek, isObserved = sp.taxonId in observedIds, showObservedIndicator = hasLifeList,
                             photoUri = photoUri, onClick = { onSpeciesClick(sp.taxonId) })
@@ -246,7 +257,7 @@ fun CompareScreen(
 
             // Only in B
             if (viewMode == CompareViewMode.ALL || viewMode == CompareViewMode.ONLY_B) {
-                val filteredB = filterSpecies(onlyB.values)
+                val filteredB = filteredOnlyB
                 if (filteredB.isNotEmpty()) {
                     item { Text("Only in $nameB (${filteredB.size})", color = Primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp)) }
                     items(filteredB) { sp ->

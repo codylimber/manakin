@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -106,20 +107,29 @@ class SpeciesListViewModel(
             loadObservedSpecies()
             scheduleUpdate()
         }
+
+        // Pick up packs that finish downloading, imports, merges and deletes.
+        viewModelScope.launch {
+            repository.version.drop(1).collect { refresh() }
+        }
     }
 
+    /**
+     * Re-syncs with the repository's current datasets. Disk reloads happen where data changes
+     * (downloads, import, delete, merge), so this no longer re-parses every pack on the main
+     * thread on each resume; it also runs whenever the repository publishes a new version.
+     */
     fun refresh() {
-        repository.reloadDatasets()
         val datasets = buildDatasetOptions()
         val currentKeys = AppSettings.selectedDatasetKeys
         val validKeys = currentKeys.filter { k -> datasets.any { it.key == k } }.toSet()
         val selected = validKeys.ifEmpty { datasets.firstOrNull()?.key?.let { setOf(it) } ?: emptySet() }
         AppSettings.selectedDatasetKeys = selected
-        _state.value = _state.value.copy(
+        _state.update { it.copy(
             datasets = datasets,
             selectedKeys = selected,
             displayLabel = buildDisplayLabel(selected, datasets)
-        )
+        ) }
         loadObservedSpecies()
         scheduleUpdate()
     }
@@ -132,10 +142,10 @@ class SpeciesListViewModel(
             current.add(key)
         }
         AppSettings.selectedDatasetKeys = current
-        _state.value = _state.value.copy(
+        _state.update { it.copy(
             selectedKeys = current,
             displayLabel = buildDisplayLabel(current, _state.value.datasets)
-        )
+        ) }
         loadObservedSpecies()
         scheduleUpdate()
     }
@@ -143,75 +153,76 @@ class SpeciesListViewModel(
     fun selectAllDatasets() {
         val allKeys = _state.value.datasets.map { it.key }.toSet()
         AppSettings.selectedDatasetKeys = allKeys
-        _state.value = _state.value.copy(
+        _state.update { it.copy(
             selectedKeys = allKeys,
             displayLabel = buildDisplayLabel(allKeys, _state.value.datasets)
-        )
+        ) }
         loadObservedSpecies()
         scheduleUpdate()
     }
 
     fun selectSingleDataset(key: String) {
         AppSettings.selectedDatasetKeys = setOf(key)
-        _state.value = _state.value.copy(
+        _state.update { it.copy(
             selectedKeys = setOf(key),
             displayLabel = buildDisplayLabel(setOf(key), _state.value.datasets)
-        )
+        ) }
         loadObservedSpecies()
         scheduleUpdate()
     }
 
     fun setSortMode(mode: SortMode) {
-        _state.value = _state.value.copy(sortMode = mode)
+        _state.update { it.copy(sortMode = mode) }
         scheduleUpdate()
     }
 
     fun setShowAllSpecies(showAll: Boolean) {
         AppSettings.showActiveOnly = !showAll
-        _state.value = _state.value.copy(showAllSpecies = showAll)
+        _state.update { it.copy(showAllSpecies = showAll) }
         scheduleUpdate()
     }
 
     fun setSearchQuery(query: String) {
-        _state.value = _state.value.copy(searchQuery = query)
+        _state.update { it.copy(searchQuery = query) }
         // Debounce search to avoid recomputing on every keystroke
         searchDebounceJob?.cancel()
         searchDebounceJob = viewModelScope.launch {
             delay(SEARCH_DEBOUNCE_MS)
-            updateSpeciesList()
+            // Go through the shared job so an older, slower computation can't land last.
+            scheduleUpdate()
         }
     }
 
     fun toggleSearchAllDatasets() {
-        _state.value = _state.value.copy(searchAllDatasets = !_state.value.searchAllDatasets)
+        _state.update { it.copy(searchAllDatasets = !it.searchAllDatasets) }
         scheduleUpdate()
     }
 
     fun setDate(date: LocalDate) {
         val week = date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
         val isCustom = date != LocalDate.now()
-        _state.value = _state.value.copy(
+        _state.update { it.copy(
             selectedDate = date,
             currentWeek = week,
             endDate = null,
             endWeek = null,
             isCustomDate = isCustom,
             isRangeMode = false
-        )
+        ) }
         scheduleUpdate()
     }
 
     fun setDateRange(start: LocalDate, end: LocalDate) {
         val startWeek = start.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
         val endWeek = end.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
-        _state.value = _state.value.copy(
+        _state.update { it.copy(
             selectedDate = start,
             currentWeek = startWeek,
             endDate = end,
             endWeek = endWeek,
             isCustomDate = true,
             isRangeMode = true
-        )
+        ) }
         scheduleUpdate()
     }
 
@@ -220,7 +231,7 @@ class SpeciesListViewModel(
     }
 
     fun setObservationFilter(filter: ObservationFilter) {
-        _state.value = _state.value.copy(observationFilter = filter)
+        _state.update { it.copy(observationFilter = filter) }
         scheduleUpdate()
     }
 
@@ -255,14 +266,14 @@ class SpeciesListViewModel(
     private fun loadObservedSpecies() {
         val service = lifeListService ?: return
         if (!service.hasUsername()) {
-            _state.value = _state.value.copy(observedIds = emptySet(), hasLifeList = false)
+            _state.update { it.copy(observedIds = emptySet(), hasLifeList = false) }
             return
         }
         val allIds = mutableSetOf<Int>()
         for (key in _state.value.selectedKeys) {
             allIds.addAll(service.getObservedForScope(key))
         }
-        _state.value = _state.value.copy(observedIds = allIds, hasLifeList = true)
+        _state.update { it.copy(observedIds = allIds, hasLifeList = true) }
     }
 
     private fun buildDatasetOptions(): List<DatasetOption> =
@@ -289,7 +300,9 @@ class SpeciesListViewModel(
     private suspend fun updateSpeciesList() {
         val st = _state.value
 
-        withContext(Dispatchers.Default) {
+        // withContext re-checks cancellation when it returns, so a superseded run never
+        // publishes its (stale) result over a newer one.
+        val result = withContext(Dispatchers.Default) {
             val week = st.currentWeek
             val weekRange = if (st.isRangeMode && st.endWeek != null) {
                 if (st.currentWeek <= st.endWeek) (st.currentWeek..st.endWeek).toSet()
@@ -370,17 +383,25 @@ class SpeciesListViewModel(
             val displayedActiveCount = sorted.count { it.status != SpeciesStatus.INACTIVE }
             val displayedObservedCount = sorted.count { it.isObserved }
 
-            _state.update { current ->
-                current.copy(
-                    species = sorted,
-                    activeCount = displayedActiveCount,
-                    totalCount = sorted.size,
-                    observedCount = displayedObservedCount,
-                    taxonomyHeaders = headers
-                )
-            }
+            ListResult(sorted, displayedActiveCount, displayedObservedCount, headers)
+        }
+        _state.update { current ->
+            current.copy(
+                species = result.sorted,
+                activeCount = result.activeCount,
+                totalCount = result.sorted.size,
+                observedCount = result.observedCount,
+                taxonomyHeaders = result.headers
+            )
         }
     }
+
+    private class ListResult(
+        val sorted: List<SpeciesWithStatus>,
+        val activeCount: Int,
+        val observedCount: Int,
+        val headers: Map<Int, String>
+    )
 
     private fun buildTaxonomyHeaders(sorted: List<SpeciesWithStatus>): Map<Int, String> {
         if (sorted.isEmpty()) return emptyMap()

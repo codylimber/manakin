@@ -19,9 +19,32 @@ object AppSettings {
     // (e.g. Butterflies, a few plant genera). Distinct from `favorites`, which
     // is starred individual species within datasets.
     var favoriteTaxa by mutableStateOf(listOf<TaxonResult>())
-    var selectedDatasetKeys by mutableStateOf(setOf<String>())
-    var showActiveOnly by mutableStateOf(true)
-    var targetMode by mutableStateOf("STARRED")
+    // These three were loaded from prefs but never written back, so they reset on every
+    // launch. Setters now persist; init() writes the backing state directly.
+    private var selectedDatasetKeysState by mutableStateOf(setOf<String>())
+    var selectedDatasetKeys: Set<String>
+        get() = selectedDatasetKeysState
+        set(value) {
+            if (value == selectedDatasetKeysState) return
+            selectedDatasetKeysState = value
+            saveSelectedDatasetKeys()
+        }
+    private var showActiveOnlyState by mutableStateOf(true)
+    var showActiveOnly: Boolean
+        get() = showActiveOnlyState
+        set(value) {
+            if (value == showActiveOnlyState) return
+            showActiveOnlyState = value
+            saveShowActiveOnly()
+        }
+    private var targetModeState by mutableStateOf("STARRED")
+    var targetMode: String
+        get() = targetModeState
+        set(value) {
+            if (value == targetModeState) return
+            targetModeState = value
+            saveTargetMode()
+        }
     // Mirrors PhenologyPrefs.showEarlyLate; set via updateShowEarlyLate so both stay in sync.
     var showEarlyLate by mutableStateOf(true)
         private set
@@ -45,9 +68,9 @@ object AppSettings {
         digestHour = prefs.getInt("digest_hour", 8)
         targetNotificationsEnabled = prefs.getBoolean("target_notifications_enabled", false)
         notificationDatasetKeys = prefs.getStringSet("notification_dataset_keys", emptySet()) ?: emptySet()
-        selectedDatasetKeys = prefs.getStringSet("selected_dataset_keys", emptySet()) ?: emptySet()
-        showActiveOnly = prefs.getBoolean("show_active_only", true)
-        targetMode = prefs.getString("target_mode", "STARRED") ?: "STARRED"
+        selectedDatasetKeysState = prefs.getStringSet("selected_dataset_keys", emptySet())?.toSet() ?: emptySet()
+        showActiveOnlyState = prefs.getBoolean("show_active_only", true)
+        targetModeState = prefs.getString("target_mode", "STARRED") ?: "STARRED"
         PhenologyPrefs.load(prefs)
         showEarlyLate = PhenologyPrefs.showEarlyLate
     }

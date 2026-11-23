@@ -23,10 +23,14 @@ class LifeListService(
         set(value) { prefs.edit().putString("inat_username", value).apply() }
 
     var observationScope: ObservationScope
-        get() = ObservationScope.valueOf(
-            prefs.getString("observation_scope", ObservationScope.ANYWHERE.name)
-                ?: ObservationScope.ANYWHERE.name
-        )
+        get() = try {
+            ObservationScope.valueOf(
+                prefs.getString("observation_scope", ObservationScope.ANYWHERE.name)
+                    ?: ObservationScope.ANYWHERE.name
+            )
+        } catch (_: IllegalArgumentException) {
+            ObservationScope.ANYWHERE
+        }
         set(value) { prefs.edit().putString("observation_scope", value.name).apply() }
 
     // --- Observation badge sync (for Explore/Targets tabs) ---
@@ -110,7 +114,8 @@ class LifeListService(
             }
         }
         val combinedName = taxonNames.joinToString(" + ")
-        val primaryId = taxonIds.first()
+        val primaryId = taxonIds.firstOrNull()
+            ?: throw IllegalStateException("No taxa selected for the life list.")
         val lifeList = SavedLifeList(
             taxonId = primaryId,
             taxonName = combinedName,

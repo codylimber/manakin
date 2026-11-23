@@ -34,22 +34,48 @@ class PhenologyRepository(private val context: Context) {
         coerceInputValues = true
         encodeDefaults = true
     }
-    // Keyed by "Group — Place" to avoid collisions
-    private val datasets = mutableMapOf<String, Dataset>()
-    private val keyDirNames = mutableMapOf<String, String>()
-    private val keySources = mutableMapOf<String, DatasetSource>()
+    /**
+     * Everything loaded from disk, published as one immutable snapshot. Readers on any thread
+     * (UI, Default-dispatcher list building, widget, worker) always see a complete, consistent
+     * set; a reload swaps in a new snapshot instead of clearing maps others are iterating.
+     */
+    private class Snapshot(
+        // Keyed by "Group — Place" to avoid collisions
+        val datasets: Map<String, Dataset>,
+        val keyDirNames: Map<String, String>,
+        val keySources: Map<String, DatasetSource>
+    ) {
+        val sortedKeys: List<String> = datasets.keys.sorted()
+        /** taxonId -> (key, species): first dataset wins, matching the old lookup order. */
+        val byTaxon: Map<Int, Pair<String, Species>> = buildMap {
+            for ((key, ds) in datasets) for (sp in ds.species) {
+                if (sp.taxonId !in this) put(sp.taxonId, key to sp)
+            }
+        }
+    }
+
+    @Volatile private var snapshot = Snapshot(emptyMap(), emptyMap(), emptyMap())
+        set(value) { field = value; _version.value = _version.value + 1 }
+
+    private val _version = kotlinx.coroutines.flow.MutableStateFlow(0)
+    /** Bumps whenever the loaded set of datasets changes; observe it instead of re-reading disk. */
+    val version: kotlinx.coroutines.flow.StateFlow<Int> = _version
+    private val datasets: Map<String, Dataset> get() = snapshot.datasets
+    private val keyDirNames: Map<String, String> get() = snapshot.keyDirNames
+    private val keySources: Map<String, DatasetSource> get() = snapshot.keySources
     private var hiddenKeys = mutableSetOf<String>()
-    private var loaded = false
+    @Volatile private var loaded = false
+    private val loadLock = Any()
 
     private val prefs get() = context.getSharedPreferences("manakin_prefs", Context.MODE_PRIVATE)
 
     private fun datasetKey(group: String, placeName: String): String = "$group — $placeName"
 
-    fun loadDatasets() {
+    fun loadDatasets() = synchronized(loadLock) {
         if (loaded) return
-        datasets.clear()
-        keyDirNames.clear()
-        keySources.clear()
+        val datasets = LinkedHashMap<String, Dataset>()
+        val keyDirNames = HashMap<String, String>()
+        val keySources = HashMap<String, DatasetSource>()
         hiddenKeys = prefs.getStringSet("hidden_datasets", emptySet())!!.toMutableSet()
 
         // Load from assets
@@ -93,10 +119,11 @@ class PhenologyRepository(private val context: Context) {
             }
         }
 
+        snapshot = Snapshot(datasets, keyDirNames, keySources)
         loaded = true
     }
 
-    fun reloadDatasets() {
+    fun reloadDatasets() = synchronized(loadLock) {
         loaded = false
         loadDatasets()
     }
@@ -109,7 +136,7 @@ class PhenologyRepository(private val context: Context) {
         reloadDatasets()
     }
 
-    fun getKeys(): List<String> = datasets.keys.sorted()
+    fun getKeys(): List<String> = snapshot.sortedKeys
 
     fun getDataset(key: String): Dataset? = datasets[key]
 
@@ -125,13 +152,14 @@ class PhenologyRepository(private val context: Context) {
 
     fun getSpeciesForKey(key: String): List<Species> = datasets[key]?.species ?: emptyList()
 
-    fun getSpeciesById(taxonId: Int): Species? =
-        datasets.values.flatMap { it.species }.find { it.taxonId == taxonId }
+    fun getSpeciesById(taxonId: Int): Species? = snapshot.byTaxon[taxonId]?.second
 
-    fun getKeyForSpecies(taxonId: Int): String? =
-        datasets.entries.find { (_, ds) -> ds.species.any { it.taxonId == taxonId } }?.key
+    fun getKeyForSpecies(taxonId: Int): String? = snapshot.byTaxon[taxonId]?.first
 
     fun getPhotoUri(key: String, filename: String): String {
+        val snapshot = snapshot
+        val keySources = snapshot.keySources
+        val keyDirNames = snapshot.keyDirNames
         val source = keySources[key] ?: DatasetSource.ASSET
         val dir = keyDirNames[key] ?: ""
         return when (source) {
@@ -155,19 +183,18 @@ class PhenologyRepository(private val context: Context) {
                 ds.metadata.generatedAt, source, size)
         }
 
-    fun deleteDataset(key: String) {
-        val source = keySources[key]
+    fun deleteDataset(key: String) = synchronized(loadLock) {
+        val current = snapshot
+        val source = current.keySources[key]
         if (source == DatasetSource.INTERNAL) {
-            val dir = keyDirNames[key] ?: return
+            val dir = current.keyDirNames[key] ?: return
             File(context.filesDir, "datasets/$dir").deleteRecursively()
         } else if (source == DatasetSource.ASSET) {
             // Hide bundled dataset
             hiddenKeys.add(key)
             prefs.edit().putStringSet("hidden_datasets", hiddenKeys).apply()
         }
-        datasets.remove(key)
-        keyDirNames.remove(key)
-        keySources.remove(key)
+        snapshot = Snapshot(current.datasets - key, current.keyDirNames - key, current.keySources - key)
     }
 
     fun exportDataset(key: String): java.io.File? {
@@ -222,8 +249,8 @@ class PhenologyRepository(private val context: Context) {
     }
 
     fun importDataset(inputStream: java.io.InputStream): Boolean {
+        val tempDir = File(context.cacheDir, "import_temp_${System.currentTimeMillis()}")
         return try {
-            val tempDir = File(context.cacheDir, "import_temp_${System.currentTimeMillis()}")
             tempDir.mkdirs()
 
             java.util.zip.ZipInputStream(inputStream).use { zip ->
@@ -266,6 +293,9 @@ class PhenologyRepository(private val context: Context) {
         } catch (e: Exception) {
             android.util.Log.e("PhenologyRepo", "Import failed", e)
             false
+        } finally {
+            // Decode failures used to leave the unzipped copy behind in cache.
+            tempDir.deleteRecursively()
         }
     }
 
@@ -274,8 +304,8 @@ class PhenologyRepository(private val context: Context) {
         if (!jsonFile.exists()) return false
 
         val dataset = json.decodeFromString<Dataset>(jsonFile.readText())
-        val slug = "${dataset.metadata.group}-${dataset.metadata.placeName}".lowercase()
-            .replace(Regex("[^a-z0-9]+"), "-").trim('-')
+        val slug = com.codylimber.fieldphenology.data.generator.GeneratorSupport
+            .slug(dataset.metadata.group, dataset.metadata.placeName)
 
         val destDir = File(context.filesDir, "datasets/$slug")
         if (destDir.exists()) destDir.deleteRecursively()
