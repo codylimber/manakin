@@ -24,8 +24,8 @@ android {
         applicationId = "com.manakin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.5.1"
+        versionCode = 11
+        versionName = "1.6"
     }
 
     signingConfigs {
