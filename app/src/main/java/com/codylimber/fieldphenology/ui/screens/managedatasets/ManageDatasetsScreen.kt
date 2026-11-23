@@ -131,6 +131,8 @@ fun ManageDatasetsScreen(
                                 Text(info.placeName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                                 val details = buildString {
                                     append("${info.speciesCount} species")
+                                    com.codylimber.fieldphenology.ui.screens.generating.monthsLabel(info.months)
+                                        ?.let { append("  \u2022  $it only") }
                                     if (info.source == DatasetSource.INTERNAL && info.sizeBytes > 0) {
                                         append("  \u2022  ${info.sizeDisplay}")
                                     }

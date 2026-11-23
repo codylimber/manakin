@@ -18,7 +18,8 @@ data class DatasetInfo(
     val speciesCount: Int,
     val generatedAt: String,
     val source: DatasetSource,
-    val sizeBytes: Long = 0
+    val sizeBytes: Long = 0,
+    val months: List<Int> = emptyList()
 ) {
     val sizeDisplay: String get() {
         val mb = sizeBytes / (1024.0 * 1024.0)
@@ -180,7 +181,7 @@ class PhenologyRepository(private val context: Context) {
                 DatasetSource.ASSET -> 0L  // can't easily measure asset size
             }
             DatasetInfo(key, ds.metadata.group, ds.metadata.placeName, ds.metadata.speciesCount,
-                ds.metadata.generatedAt, source, size)
+                ds.metadata.generatedAt, source, size, ds.metadata.months)
         }
 
     fun deleteDataset(key: String) = synchronized(loadLock) {
