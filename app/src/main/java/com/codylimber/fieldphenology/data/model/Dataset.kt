@@ -30,7 +30,10 @@ data class DatasetMetadata(
     // GBIF-only: persisted so the dataset can be regenerated/updated. gbifAreaIds are
     // GADM gadmGids (taxonIds above hold the GBIF backbone keys for GBIF datasets).
     val gbifAreaIds: List<String> = emptyList(),
-    val gbifSampleSize: Int = 600
+    val gbifSampleSize: Int = 600,
+    // Months (1..12) the species list was limited to; empty = whole year. Each species still
+    // carries its full 53-week phenology — only membership in the pack is filtered.
+    val months: List<Int> = emptyList()
 )
 
 @Serializable

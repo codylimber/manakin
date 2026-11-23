@@ -18,9 +18,11 @@ class INatApiClient(private val client: OkHttpClient) {
         // Some endpoints (e.g. places/autocomplete) are not implemented in v2, so a
         // few calls still target v1 explicitly.
         const val V1_BASE_URL = "https://api.inaturalist.org/v1"
-        const val DATA_INTERVAL_MS = 2000L
+        // iNaturalist asks API clients to stay around 1 request/second (60/min).
+        const val DATA_INTERVAL_MS = 1000L
         const val INTERACTIVE_INTERVAL_MS = 500L
         const val MAX_RETRIES = 5
+        const val MAX_SPECIES_COUNTS_PER_PAGE = 500
         val RETRY_STATUSES = setOf(429, 500, 502, 503, 504)
     }
 
@@ -176,7 +178,8 @@ class INatApiClient(private val client: OkHttpClient) {
         if (placeIds.isNotEmpty()) {
             params["place_id"] = placeIds.joinToString(",")
         }
-        val data = get("observations", params, intervalMs = INTERACTIVE_INTERVAL_MS)
+        // Called during dataset generation, so it shares the bulk-data rate limit.
+        val data = get("observations", params)
         val results = data["results"]?.jsonArray ?: return emptyList()
         val photos = mutableListOf<JsonObject>()
         for (obs in results) {
@@ -195,11 +198,15 @@ class INatApiClient(private val client: OkHttpClient) {
     suspend fun getSpeciesCountEstimate(
         taxonId: Int?,
         placeIds: List<Int>,
-        qualityGrade: String = "research"
+        qualityGrade: String = "research",
+        months: List<Int> = emptyList()
     ): Int {
         var total = 0
         for (placeId in placeIds) {
-            val (count, _) = getSpeciesCounts(taxonId, placeId, qualityGrade, page = 1, perPage = 1)
+            val (count, _) = getSpeciesCounts(
+                taxonId, placeId, qualityGrade, page = 1, perPage = 1,
+                months = months, intervalMs = INTERACTIVE_INTERVAL_MS
+            )
             total += count
         }
         return total
@@ -212,7 +219,10 @@ class INatApiClient(private val client: OkHttpClient) {
         placeId: Int,
         qualityGrade: String = "research",
         page: Int = 1,
-        perPage: Int = 200
+        perPage: Int = MAX_SPECIES_COUNTS_PER_PAGE,
+        months: List<Int> = emptyList(),
+        week: Int? = null,
+        intervalMs: Long = DATA_INTERVAL_MS
     ): Pair<Int, List<JsonObject>> {
         val params = mutableMapOf(
             "quality_grade" to qualityGrade,
@@ -222,8 +232,12 @@ class INatApiClient(private val client: OkHttpClient) {
             "fields" to "(taxon:(id:!t,name:!t,preferred_common_name:!t))"
         )
         if (taxonId != null) params["taxon_id"] = taxonId.toString()
+        // An empty or full-year selection means "no month filter".
+        if (months.isNotEmpty() && months.size < 12) params["month"] = months.sorted().joinToString(",")
+        // week = week of year (1..53), matching the histogram endpoint's week_of_year bins.
+        if (week != null) params["week"] = week.toString()
 
-        val data = get("observations/species_counts", params)
+        val data = get("observations/species_counts", params, intervalMs = intervalMs)
         val totalResults = data["total_results"]?.jsonPrimitive?.intOrNull ?: 0
         val results = data["results"]?.jsonArray?.map { it.jsonObject } ?: emptyList()
         return Pair(totalResults, results)
@@ -291,12 +305,20 @@ class INatApiClient(private val client: OkHttpClient) {
         return null
     }
 
-    suspend fun getTaxaDetails(taxonIds: List<Int>): List<JsonObject> {
+    /**
+     * Batch taxon lookup (max 30 ids). The v2 API only returns requested fields, so
+     * [includeProfile] adds the description and conservation status that dataset packs show;
+     * without them every generated species had an empty description.
+     */
+    suspend fun getTaxaDetails(taxonIds: List<Int>, includeProfile: Boolean = false): List<JsonObject> {
         val idsStr = taxonIds.take(30).joinToString(",")
+        val profile = if (includeProfile) {
+            "wikipedia_summary:!t,conservation_status:(status:!t,status_name:!t),"
+        } else ""
         val data = get(
             "taxa/$idsStr",
             mapOf(
-                "fields" to "(name:!t,rank:!t,preferred_common_name:!t," +
+                "fields" to "(name:!t,rank:!t,preferred_common_name:!t," + profile +
                     "default_photo:(medium_url:!t,url:!t)," +
                     "taxon_photos:(photo:(license_code:!t,url:!t,medium_url:!t,attribution:!t))," +
                     "ancestors:(id:!t,rank:!t,name:!t,preferred_common_name:!t))"

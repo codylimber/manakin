@@ -157,7 +157,8 @@ class GbifApiClient(private val client: OkHttpClient) {
         yearStart: Int,
         yearEnd: Int,
         facetOffset: Int = 0,
-        facetLimit: Int = FACET_PAGE
+        facetLimit: Int = FACET_PAGE,
+        monthRange: IntRange? = null
     ): Pair<Int, List<Pair<Int, Int>>> {
         val params = mutableMapOf(
             "gadmGid" to gadmGid,
@@ -168,6 +169,11 @@ class GbifApiClient(private val client: OkHttpClient) {
             "limit" to "0"
         )
         if (taxonKey != null) params["taxonKey"] = taxonKey.toString()
+        // GBIF accepts a single month or an inclusive "a,b" range.
+        if (monthRange != null) {
+            params["month"] = if (monthRange.first == monthRange.last) "${monthRange.first}"
+                else "${monthRange.first},${monthRange.last}"
+        }
 
         val data = get("occurrence/search", params)
         val obj = data.jsonObjectOrNull() ?: return Pair(0, emptyList())
@@ -189,16 +195,38 @@ class GbifApiClient(private val client: OkHttpClient) {
         taxonKeys: List<Int?>,
         gadmGids: List<String>,
         yearStart: Int,
-        yearEnd: Int
+        yearEnd: Int,
+        months: List<Int> = emptyList()
     ): Int {
         val keys = mutableSetOf<Int>()
+        val ranges: List<IntRange?> = monthRuns(months).ifEmpty { listOf(null) }
         for (tk in taxonKeys) {
             for (gid in gadmGids) {
-                val (_, buckets) = getSpeciesFacet(tk, gid, yearStart, yearEnd, 0, FACET_PAGE)
-                buckets.forEach { keys.add(it.first) }
+                for (range in ranges) {
+                    val (_, buckets) = getSpeciesFacet(tk, gid, yearStart, yearEnd, 0, FACET_PAGE, range)
+                    buckets.forEach { keys.add(it.first) }
+                }
             }
         }
         return keys.size
+    }
+
+    /**
+     * Splits a month selection into contiguous runs GBIF can express as "a,b" ranges, e.g.
+     * [1,2,6,11,12] -> 1..2, 6..6, 11..12. Empty or all-12 means no filter (empty list).
+     */
+    fun monthRuns(months: List<Int>): List<IntRange> {
+        val sorted = months.filter { it in 1..12 }.distinct().sorted()
+        if (sorted.isEmpty() || sorted.size == 12) return emptyList()
+        val runs = mutableListOf<IntRange>()
+        var start = sorted.first()
+        var prev = start
+        for (m in sorted.drop(1)) {
+            if (m != prev + 1) { runs.add(start..prev); start = m }
+            prev = m
+        }
+        runs.add(start..prev)
+        return runs
     }
 
     /**

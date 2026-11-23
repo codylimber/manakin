@@ -39,12 +39,33 @@ class GbifDatasetGenerator(
         yearsBack: Int = 10,
         sampleSize: Int = 600,
         maxPhotos: Int = 3,
+        months: List<Int> = emptyList(),
         onProgress: (GenerationProgress) -> Unit
     ): String {
-        val slug = "${groupName}-${areaName}".lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
-        val outputDir = File(context.filesDir, "datasets/$slug")
+        val slug = GeneratorSupport.slug(groupName, areaName)
+        val monthFilter = months.filter { it in 1..12 }.distinct().sorted()
+            .takeIf { it.size in 1..11 } ?: emptyList()
+        return GeneratorSupport.buildAtomically(context, slug) { outputDir ->
+            build(outputDir, areaGids, areaName, taxonKeys, taxonName, groupName, minObs,
+                yearsBack, sampleSize, maxPhotos, monthFilter, onProgress)
+        }
+    }
+
+    private suspend fun build(
+        outputDir: File,
+        areaGids: List<String>,
+        areaName: String,
+        taxonKeys: List<Int?>,
+        taxonName: String,
+        groupName: String,
+        minObs: Int,
+        yearsBack: Int,
+        sampleSize: Int,
+        maxPhotos: Int,
+        months: List<Int>,
+        onProgress: (GenerationProgress) -> Unit
+    ) {
         val photosDir = File(outputDir, "photos")
-        photosDir.mkdirs()
 
         val yearEnd = LocalDate.now().year
         val yearStart = yearEnd - yearsBack + 1
@@ -52,11 +73,15 @@ class GbifDatasetGenerator(
         // Step 1: Species list — page the speciesKey facet across all taxa + areas, summing counts.
         onProgress(GenerationProgress(GenerationPhase.FETCHING_SPECIES, 0, 1, "Fetching species list..."))
         val counts = mutableMapOf<Int, Int>() // speciesKey -> summed occurrence count
+        // Month runs are disjoint, so their counts add up; null = whole year.
+        val monthRanges: List<IntRange?> = gbif.monthRuns(months).ifEmpty { listOf(null) }
         for (taxonKey in taxonKeys) {
-            for (gid in areaGids) {
+            for (gid in areaGids) for (monthRange in monthRanges) {
                 var offset = 0
                 while (true) {
-                    val (_, buckets) = gbif.getSpeciesFacet(taxonKey, gid, yearStart, yearEnd, offset)
+                    val (_, buckets) = gbif.getSpeciesFacet(
+                        taxonKey, gid, yearStart, yearEnd, offset, monthRange = monthRange
+                    )
                     for ((sk, c) in buckets) counts[sk] = (counts[sk] ?: 0) + c
                     onProgress(GenerationProgress(GenerationPhase.FETCHING_SPECIES,
                         counts.size, counts.size, "Found ${counts.size} species so far..."))
@@ -67,7 +92,12 @@ class GbifDatasetGenerator(
         }
 
         val filtered = counts.filter { it.value >= minObs }
-        if (filtered.isEmpty()) throw RuntimeException("No species found matching criteria.")
+        if (filtered.isEmpty()) {
+            throw RuntimeException(
+                if (months.isEmpty()) "No species found matching criteria."
+                else "No species recorded in the selected months match these criteria."
+            )
+        }
         val speciesKeys = filtered.keys.sortedByDescending { filtered[it] }
         val nSpecies = speciesKeys.size
         onProgress(GenerationProgress(GenerationPhase.FETCHING_SPECIES, nSpecies, nSpecies, "$nSpecies species found"))
@@ -113,13 +143,7 @@ class GbifDatasetGenerator(
         val weekly = DataProcessor.buildWeeklyMatrix(histograms)
         for (sp in raws) {
             val h = histograms[sp.taxonId.toString()] ?: continue
-            val active = h.filter { it.value > 0 }
-            if (active.isNotEmpty()) {
-                sp.peakWeek = active.maxByOrNull { it.value }!!.key
-                sp.firstWeek = active.keys.min()
-                sp.lastWeek = active.keys.max()
-            }
-            sp.periodCount = DataProcessor.detectFlightPeriods(weekly, sp.taxonId.toString())
+            DataProcessor.applyHistogram(sp, h)
         }
 
         // Step 3: Resolve each species to an iNaturalist taxon, then batch-fetch iNat details.
@@ -136,49 +160,22 @@ class GbifDatasetGenerator(
         val inatIds = inatIdByKey.values.distinct()
         for (i in inatIds.indices step 30) {
             val batch = inatIds.subList(i, minOf(i + 30, inatIds.size))
-            val results = try { inat.getTaxaDetails(batch) } catch (_: Exception) { emptyList() }
+            val results = try { inat.getTaxaDetails(batch, includeProfile = true) } catch (_: Exception) { emptyList() }
             for (t in results) {
                 val id = t["id"]?.jsonPrimitive?.intOrNull ?: continue
                 inatDetails[id] = t
             }
         }
 
-        // Step 4: Download photos from iNaturalist (where matched).
-        val photoMap = mutableMapOf<Int, List<SpeciesPhoto>>() // keyed by gbif speciesKey
-        for ((idx, sp) in raws.withIndex()) {
-            onProgress(GenerationProgress(GenerationPhase.DOWNLOADING_PHOTOS, idx + 1, nSpecies,
-                "Photos: ${sp.commonName.ifEmpty { sp.scientificName }} (${idx + 1}/$nSpecies)"))
-            val inatId = inatIdByKey[sp.taxonId]
-            val taxonInfo = inatId?.let { inatDetails[it] }
-            val photos = extractPhotos(taxonInfo)
-            val spPhotos = mutableListOf<SpeciesPhoto>()
-
-            val ccPhotos = photos.filter { photo ->
-                val license = photo["license_code"]?.jsonPrimitive?.contentOrNull
-                license != null && license.startsWith("cc")
+        // Step 4: Download photos from iNaturalist (where matched), several at a time.
+        val photoLists = GeneratorSupport.forEachConcurrently(
+            raws,
+            onEach = { done, total, sp ->
+                onProgress(GenerationProgress(GenerationPhase.DOWNLOADING_PHOTOS, done, total,
+                    "Photos: ${sp.commonName.ifEmpty { sp.scientificName }} ($done/$total)"))
             }
-            val allCcPhotos = if (ccPhotos.size < maxPhotos && inatId != null) {
-                val obsPhotos = try {
-                    inat.getObservationPhotos(inatId, emptyList(), "research", maxPhotos - ccPhotos.size)
-                } catch (_: Exception) { emptyList() }
-                ccPhotos + obsPhotos
-            } else ccPhotos
-
-            for ((pi, photo) in allCcPhotos.take(maxPhotos).withIndex()) {
-                var url = photo["medium_url"]?.jsonPrimitive?.contentOrNull
-                    ?: photo["url"]?.jsonPrimitive?.contentOrNull ?: continue
-                url = url.replace("/square.", "/medium.")
-                val filename = "${sp.taxonId}_$pi.jpg"
-                val bytes = inat.downloadPhoto(url) ?: continue
-                File(photosDir, filename).writeBytes(bytes)
-                spPhotos.add(SpeciesPhoto(
-                    file = filename,
-                    attribution = photo["attribution"]?.jsonPrimitive?.contentOrNull,
-                    license = photo["license_code"]?.jsonPrimitive?.contentOrNull
-                ))
-            }
-            photoMap[sp.taxonId] = spPhotos
-        }
+        ) { sp -> downloadPhotos(sp, inatIdByKey[sp.taxonId], inatDetails, maxPhotos, photosDir) }
+        val photoMap = raws.indices.associate { raws[it].taxonId to photoLists[it] }
 
         // Step 5: Build and save the dataset.
         onProgress(GenerationProgress(GenerationPhase.SAVING, 0, 1, "Saving dataset..."))
@@ -251,14 +248,53 @@ class GbifDatasetGenerator(
                 source = "gbif",
                 yearsBack = yearsBack,
                 gbifAreaIds = areaGids,
-                gbifSampleSize = sampleSize
+                gbifSampleSize = sampleSize,
+                months = months
             ),
             species = speciesEntries
         )
 
         File(outputDir, "dataset.json").writeText(datasetJson.encodeToString(dataset))
         onProgress(GenerationProgress(GenerationPhase.SAVING, 1, 1, "Complete! ${speciesEntries.size} species"))
-        return outputDir.absolutePath
+    }
+
+    private suspend fun downloadPhotos(
+        sp: RawSpecies,
+        inatId: Int?,
+        inatDetails: Map<Int, JsonObject>,
+        maxPhotos: Int,
+        photosDir: File
+    ): List<SpeciesPhoto> {
+        if (maxPhotos <= 0) return emptyList()
+        val taxonInfo = inatId?.let { inatDetails[it] }
+        val ccPhotos = extractPhotos(taxonInfo).filter { photo ->
+            val license = photo["license_code"]?.jsonPrimitive?.contentOrNull
+            license != null && license.startsWith("cc")
+        }
+        val allCcPhotos = if (ccPhotos.size < maxPhotos && inatId != null) {
+            val obsPhotos = try {
+                inat.getObservationPhotos(inatId, emptyList(), "research", maxPhotos - ccPhotos.size)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) { emptyList() }
+            ccPhotos + obsPhotos
+        } else ccPhotos
+
+        val spPhotos = mutableListOf<SpeciesPhoto>()
+        for ((pi, photo) in allCcPhotos.take(maxPhotos).withIndex()) {
+            val url = (photo["medium_url"]?.jsonPrimitive?.contentOrNull
+                ?: photo["url"]?.jsonPrimitive?.contentOrNull ?: continue)
+                .replace("/square.", "/medium.")
+            val filename = "${sp.taxonId}_$pi.jpg"
+            val bytes = inat.downloadPhoto(url) ?: continue
+            File(photosDir, filename).writeBytes(bytes)
+            spPhotos.add(SpeciesPhoto(
+                file = filename,
+                attribution = photo["attribution"]?.jsonPrimitive?.contentOrNull,
+                license = photo["license_code"]?.jsonPrimitive?.contentOrNull
+            ))
+        }
+        return spPhotos
     }
 
     // --- iNaturalist taxon-JSON helpers (mirrors DatasetGenerator) ---
