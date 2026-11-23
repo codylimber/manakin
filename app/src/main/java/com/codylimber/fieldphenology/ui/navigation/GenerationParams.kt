@@ -11,6 +11,8 @@ data class GenerationParams(
     val minObs: Int,
     val qualityGrade: String = "research",
     val maxPhotos: Int = 3,
+    // Only include species recorded in these months (1..12); empty = whole year.
+    val months: List<Int> = emptyList(),
     // --- GBIF-only fields (ignored for iNaturalist datasets) ---
     val source: DatasetSource = DatasetSource.INAT,
     val gbifAreaIds: List<String> = emptyList(), // GADM gadmGids

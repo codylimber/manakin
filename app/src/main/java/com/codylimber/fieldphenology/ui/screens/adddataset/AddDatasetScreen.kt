@@ -37,7 +37,7 @@ import com.codylimber.fieldphenology.ui.theme.Primary
 fun AddDatasetScreen(
     apiClient: INatApiClient,
     onBack: () -> Unit,
-    onGenerate: () -> Unit,
+    onGenerate: (GenerationParams) -> Unit,
     repository: PhenologyRepository? = null,
     viewModel: AddDatasetViewModel = viewModel {
         AddDatasetViewModel(apiClient, GbifApiClient(MainActivity.sharedHttpClient))
@@ -264,6 +264,51 @@ fun AddDatasetScreen(
                             )
                         )
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Months: limit the pack to species recorded in these months (e.g. a trip window).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Months",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (state.selectedMonths.isNotEmpty()) {
+                    TextButton(
+                        onClick = { viewModel.clearMonths() },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) { Text("All year", color = Primary, fontSize = 12.sp) }
+                }
+            }
+            Text(
+                if (state.selectedMonths.isEmpty()) "All species recorded at any time of year."
+                else "Only species recorded in the selected months. Each still gets its full-year chart.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                for (m in 1..12) {
+                    FilterChip(
+                        selected = m in state.selectedMonths,
+                        onClick = { viewModel.toggleMonth(m) },
+                        label = {
+                            Text(
+                                java.time.Month.of(m).getDisplayName(
+                                    java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()
+                                ),
+                                fontSize = 12.sp
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Primary.copy(alpha = 0.15f),
+                            selectedLabelColor = Primary
+                        )
+                    )
                 }
             }
 
@@ -531,7 +576,7 @@ fun AddDatasetScreen(
                     val taxonName = taxons.joinToString(", ") { it.commonName.ifEmpty { it.scientificName } }
                     val taxonIds = taxons.map { it.id }
 
-                    GenerationParams.current = if (state.isGbif) {
+                    val params = if (state.isGbif) {
                         val areas = state.selectedGbifAreas
                         GenerationParams(
                             placeIds = emptyList(),
@@ -544,7 +589,8 @@ fun AddDatasetScreen(
                             source = DatasetSource.GBIF,
                             gbifAreaIds = areas.map { it.id },
                             gbifYearsBack = state.gbifYearsBack.toIntOrNull()?.coerceAtLeast(1) ?: 10,
-                            gbifSampleSize = state.gbifSampleSize.toIntOrNull()?.coerceAtLeast(60) ?: 600
+                            gbifSampleSize = state.gbifSampleSize.toIntOrNull()?.coerceAtLeast(60) ?: 600,
+                            months = state.selectedMonths.sorted()
                         )
                     } else {
                         val places = state.selectedPlaces
@@ -556,10 +602,11 @@ fun AddDatasetScreen(
                             groupName = state.groupLabel,
                             minObs = state.minObs.toIntOrNull() ?: 1,
                             qualityGrade = state.qualityGrade,
-                            maxPhotos = state.maxPhotos.toIntOrNull() ?: 3
+                            maxPhotos = state.maxPhotos.toIntOrNull() ?: 3,
+                            months = state.selectedMonths.sorted()
                         )
                     }
-                    onGenerate()
+                    onGenerate(params)
                 },
                 enabled = state.canGenerate,
                 shape = RoundedCornerShape(12.dp),

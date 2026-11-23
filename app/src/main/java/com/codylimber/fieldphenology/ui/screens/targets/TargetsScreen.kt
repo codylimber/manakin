@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.targets
 
+import com.codylimber.fieldphenology.data.model.abundanceAt
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -74,7 +76,7 @@ fun TargetsScreen(
                 if (sp.taxonId in seen) continue
                 seen.add(sp.taxonId)
                 val status = SpeciesStatus.classify(sp, currentWeek)
-                val abundance = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
+                val abundance = sp.abundanceAt(currentWeek)
                 list.add(TargetSpecies(sp, key, groupName, status, abundance))
             }
         }

@@ -34,6 +34,7 @@ import com.codylimber.fieldphenology.data.api.INatApiClient
 import com.codylimber.fieldphenology.data.api.LifeListService
 import com.codylimber.fieldphenology.data.generator.DatasetGenerator
 import com.codylimber.fieldphenology.data.generator.GenerationService
+import com.codylimber.fieldphenology.data.generator.JobState
 import com.codylimber.fieldphenology.data.repository.PhenologyRepository
 import com.codylimber.fieldphenology.ui.navigation.GenerationParams
 import com.codylimber.fieldphenology.ui.navigation.Routes
@@ -89,13 +90,16 @@ fun MainScreen(
     val showBottomBar = currentRoute in tabRoutes
 
     val isGenerating by GenerationService.isRunning.collectAsState()
-    val generationComplete by GenerationService.isComplete.collectAsState()
-    val queueSize by GenerationService.queueSize.collectAsState()
+    val generationJobs by GenerationService.jobs.collectAsState()
+    val completedCount by GenerationService.completedCount.collectAsState()
+    val runningJob = generationJobs.firstOrNull { it.state == JobState.RUNNING }
+    val queueSize = generationJobs.count { it.state == JobState.QUEUED }
 
-    // Reload datasets when background generation completes
-    LaunchedEffect(generationComplete) {
-        if (generationComplete) {
-            repository.reloadDatasets()
+    // Reload datasets each time a background download finishes (works for queued packs too:
+    // the old boolean latch only fired once per run).
+    LaunchedEffect(completedCount) {
+        if (completedCount > 0) {
+            repository.reloadDatasetsAsync()
             // A brand-new pack has no place-scoped observations yet, so "New for Area"
             // would fall back to the global set until the next manual sync. Fetch them now.
             if (lifeListService.hasUsername()) {
@@ -138,14 +142,21 @@ fun MainScreen(
                                     strokeWidth = 2.dp,
                                     color = Primary
                                 )
+                                val pct = runningJob?.progress?.let { p ->
+                                    if (p.total > 0) " · ${(100 * p.current / p.total).coerceIn(0, 100)}%" else null
+                                } ?: ""
                                 Text(
                                     buildString {
-                                        append("Generating dataset")
+                                        append("Downloading ")
+                                        append(runningJob?.params?.groupName ?: "pack")
+                                        append(pct)
                                         if (queueSize > 0) append(" (+$queueSize queued)")
-                                        append("… Tap to view")
                                     },
                                     color = Primary,
-                                    fontSize = 13.sp
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
                                 )
                             }
                         }
@@ -229,7 +240,8 @@ fun MainScreen(
                                 source = DatasetSource.GBIF,
                                 gbifAreaIds = meta.gbifAreaIds,
                                 gbifYearsBack = meta.yearsBack ?: 10,
-                                gbifSampleSize = meta.gbifSampleSize
+                                gbifSampleSize = meta.gbifSampleSize,
+                                months = meta.months
                             )
                         } else {
                             val pIds = if (meta.placeIds.isNotEmpty()) meta.placeIds else listOf(meta.placeId)
@@ -241,15 +253,12 @@ fun MainScreen(
                                 groupName = meta.group,
                                 minObs = meta.minObs,
                                 qualityGrade = meta.qualityGrade,
-                                maxPhotos = meta.maxPhotos
+                                maxPhotos = meta.maxPhotos,
+                                months = meta.months
                             )
                         }
-                        if (GenerationService.isRunning.value) {
-                            GenerationService.enqueue(dsContext, updateParams)
-                        } else {
-                            GenerationParams.current = updateParams
-                            navController.navigate(Routes.GENERATING)
-                        }
+                        GenerationService.enqueue(dsContext, updateParams)
+                        navController.navigate(Routes.GENERATING) { launchSingleTop = true }
                     },
                     onTimeline = mc.onTimeline, onTripReport = mc.onTripReport,
                     onCompare = mc.onCompare, onLifeList = mc.onLifeList, onHelp = mc.onHelp, onAbout = mc.onAbout
@@ -305,45 +314,22 @@ fun MainScreen(
                     apiClient = apiClient,
                     repository = repository,
                     onBack = { navController.popBackStack() },
-                    onGenerate = {
-                        val params = GenerationParams.current
-                        if (params != null && GenerationService.isRunning.value) {
-                            GenerationService.enqueue(addContext, params)
-                            GenerationParams.current = null
-                            navController.popBackStack(Routes.MANAGE_DATASETS, inclusive = false)
-                        } else {
-                            navController.navigate(Routes.GENERATING) {
-                                popUpTo(Routes.ADD_DATASET) { inclusive = true }
-                            }
+                    onGenerate = { params ->
+                        GenerationService.enqueue(addContext, params)
+                        navController.navigate(Routes.GENERATING) {
+                            popUpTo(Routes.ADD_DATASET) { inclusive = true }
+                            launchSingleTop = true
                         }
                     }
                 )
             }
             composable(Routes.GENERATING) {
-                val params = GenerationParams.current
-                if (params != null) {
-                    GeneratingScreen(
-                        params = params,
-                        generator = generator,
-                        repository = repository,
-                        onDone = {
-                            GenerationParams.current = null
-                            navController.popBackStack(Routes.SPECIES_LIST, inclusive = false)
-                        },
-                        onCancel = {
-                            GenerationParams.current = null
-                            navController.popBackStack(Routes.SPECIES_LIST, inclusive = false)
-                        },
-                        onBackground = {
-                            navController.popBackStack(Routes.SPECIES_LIST, inclusive = false)
-                        }
-                    )
-                } else {
-                    // Params lost (process death, back nav) — return to species list
-                    LaunchedEffect(Unit) {
-                        navController.popBackStack(Routes.SPECIES_LIST, inclusive = false)
-                    }
-                }
+                GeneratingScreen(
+                    onBack = {
+                        if (!navController.popBackStack()) navController.navigate(Routes.SPECIES_LIST)
+                    },
+                    onAddAnother = { navController.navigate(Routes.ADD_DATASET) }
+                )
             }
             composable(Routes.COMPARE) {
                 CompareScreen(

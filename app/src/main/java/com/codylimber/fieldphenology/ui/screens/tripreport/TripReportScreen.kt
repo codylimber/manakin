@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.tripreport
 
+import com.codylimber.fieldphenology.data.model.abundanceAt
+import com.codylimber.fieldphenology.data.model.PhenologyProfile
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -91,7 +93,9 @@ fun TripReportScreen(
             for (sp in repository.getSpeciesForKey(key)) {
                 if (sp.taxonId in seen) continue
                 seen.add(sp.taxonId)
-                val isActive = sp.weekly.any { it.week in weekRange && it.n > 0 }
+                // Recorded in the window, or expected there once sampling gaps are smoothed over.
+                val isActive = sp.weekly.any { it.week in weekRange && it.n > 0 } ||
+                    weekRange.any { sp.abundanceAt(it) >= PhenologyProfile.ACTIVE_FLOOR }
                 if (isActive) list.add(sp to key)
             }
         }
@@ -175,7 +179,17 @@ fun TripReportScreen(
                                 tripDatasetKeys.toList(), checkedSpecies.filter { it.value }.keys.toList())
                             scope.launch {
                                 withContext(Dispatchers.IO) {
-                                    File(tripsDir, "${tripName.replace(Regex("[^a-zA-Z0-9]"), "_")}.json").writeText(json.encodeToString(trip))
+                                    val base = tripName.replace(Regex("[^a-zA-Z0-9]"), "_")
+                                    // Sanitizing can collide ("a b" vs "a_b"); never overwrite a different trip's file.
+                                    var target = File(tripsDir, "$base.json")
+                                    var n = 2
+                                    while (target.exists() && runCatching {
+                                            json.decodeFromString<SavedTrip>(target.readText()).name
+                                        }.getOrNull() != tripName) {
+                                        target = File(tripsDir, "${base}_$n.json")
+                                        n++
+                                    }
+                                    target.writeText(json.encodeToString(trip))
                                 }
                                 savedTrips = withContext(Dispatchers.IO) { loadTrips(tripsDir) }
                             }
@@ -285,10 +299,13 @@ fun TripReportScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         savedTrips.forEach { (file, trip) ->
                             Card(onClick = {
+                                val loadedStart = runCatching { LocalDate.parse(trip.startDate) }.getOrNull()
+                                val loadedEnd = runCatching { LocalDate.parse(trip.endDate) }.getOrNull()
+                                if (loadedStart == null || loadedEnd == null) return@Card // corrupt saved trip
                                 tripName = trip.name
-                                startDate = LocalDate.parse(trip.startDate)
-                                endDate = LocalDate.parse(trip.endDate)
-                                tripDatasetKeys = trip.datasetKeys.toSet()
+                                startDate = loadedStart
+                                endDate = loadedEnd
+                                tripDatasetKeys = trip.datasetKeys.filter { it in allKeys }.toSet().ifEmpty { allKeys.toSet() }
                                 checkedSpecies.clear()
                                 trip.checkedTaxonIds.forEach { checkedSpecies[it] = true }
                                 showSavedTrips = false

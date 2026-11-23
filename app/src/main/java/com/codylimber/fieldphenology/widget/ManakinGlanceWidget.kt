@@ -1,5 +1,8 @@
 package com.codylimber.fieldphenology.widget
 
+import com.codylimber.fieldphenology.data.model.PhenologyPrefs
+import com.codylimber.fieldphenology.data.model.abundanceAt
+
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -44,13 +47,15 @@ class ManakinGlanceWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val prefs = context.getSharedPreferences("manakin_prefs", Context.MODE_PRIVATE)
+        PhenologyPrefs.load(prefs)
         val widgetMode = prefs.getString("widget_mode", "top_active") ?: "top_active"
 
         val repository = PhenologyRepository(context)
         repository.loadDatasets()
 
-        val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
-        val lastWeek = if (currentWeek > 1) currentWeek - 1 else 53
+        val todayDate = LocalDate.now()
+        val currentWeek = todayDate.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+        val lastWeek = com.codylimber.fieldphenology.data.model.previousIsoWeek(todayDate)
 
         val widgetData = buildWidgetData(context, repository, widgetMode, currentWeek, lastWeek)
 
@@ -86,8 +91,7 @@ class ManakinGlanceWidget : GlanceAppWidget() {
         val candidates = mutableListOf<Candidate>()
         for (key in repository.getKeys()) {
             for (sp in repository.getSpeciesForKey(key)) {
-                val entry = sp.weekly.find { it.week == currentWeek }
-                if (entry != null && entry.relAbundance >= 0.25f && entry.n > 0) {
+                if (sp.abundanceAt(currentWeek) >= 0.25f) {
                     candidates.add(Candidate(sp, key))
                 }
             }
@@ -105,7 +109,7 @@ class ManakinGlanceWidget : GlanceAppWidget() {
         val chart = PhenologyChartRenderer.render(species.weekly, currentWeek, 280, 40)
         val name = species.commonName.ifEmpty { species.scientificName }
         val status = SpeciesStatus.classify(species, currentWeek)
-        val abundance = species.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
+        val abundance = species.abundanceAt(currentWeek)
 
         return WidgetData(
             mode = "organism_of_day",
@@ -121,41 +125,46 @@ class ManakinGlanceWidget : GlanceAppWidget() {
         )
     }
 
+    private data class Cand(val sp: Species, val key: String, val abundance: Float, val event: String? = null)
+
     private fun buildTopActive(
         context: Context,
         repository: PhenologyRepository,
         currentWeek: Int
     ): WidgetData {
         val seen = mutableSetOf<Int>()
-        val items = mutableListOf<WidgetSpeciesItem>()
+        val cands = mutableListOf<Cand>()
 
         for (key in repository.getKeys()) {
             for (sp in repository.getSpeciesForKey(key)) {
-                if (sp.taxonId in seen) continue
-                seen.add(sp.taxonId)
-                val abundance = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
-                if (abundance > 0f) {
-                    val thumbnail = WidgetImageLoader.loadCircularThumbnail(
-                        context, repository, sp, key, 48
-                    )
-                    val activityBar = PhenologyChartRenderer.renderActivityBar(abundance, 100, 8)
-                    items.add(
-                        WidgetSpeciesItem(
-                            name = sp.commonName.ifEmpty { sp.scientificName },
-                            scientificName = sp.scientificName,
-                            taxonId = sp.taxonId,
-                            abundance = abundance,
-                            status = SpeciesStatus.classify(sp, currentWeek),
-                            photo = thumbnail,
-                            chart = activityBar
-                        )
-                    )
-                }
+                if (!seen.add(sp.taxonId)) continue
+                val abundance = sp.abundanceAt(currentWeek)
+                if (abundance > 0f) cands.add(Cand(sp, key, abundance))
             }
         }
 
-        items.sortByDescending { it.abundance }
-        return WidgetData(mode = "top_active", speciesList = items.take(4), isEmpty = items.isEmpty())
+        val items = cands.sortedByDescending { it.abundance }.take(4).map { activeItem(context, repository, it, currentWeek) }
+        return WidgetData(mode = "top_active", speciesList = items, isEmpty = cands.isEmpty())
+    }
+
+    private fun activeItem(
+        context: Context,
+        repository: PhenologyRepository,
+        c: Cand,
+        currentWeek: Int
+    ): WidgetSpeciesItem {
+        val sp = c.sp
+        val thumbnail = WidgetImageLoader.loadCircularThumbnail(context, repository, sp, c.key, 48)
+        val activityBar = PhenologyChartRenderer.renderActivityBar(c.abundance, 100, 8)
+        return WidgetSpeciesItem(
+            name = sp.commonName.ifEmpty { sp.scientificName },
+            scientificName = sp.scientificName,
+            taxonId = sp.taxonId,
+            abundance = c.abundance,
+            status = SpeciesStatus.classify(sp, currentWeek),
+            photo = thumbnail,
+            chart = activityBar
+        )
     }
 
     private fun buildTimeline(
@@ -164,45 +173,40 @@ class ManakinGlanceWidget : GlanceAppWidget() {
         currentWeek: Int,
         lastWeek: Int
     ): WidgetData {
-        val items = mutableListOf<WidgetSpeciesItem>()
+        val cands = mutableListOf<Cand>()
         val seen = mutableSetOf<Int>()
 
         for (key in repository.getKeys()) {
             for (sp in repository.getSpeciesForKey(key)) {
-                if (sp.taxonId in seen) continue
-                seen.add(sp.taxonId)
-                val thisA = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
-                val lastA = sp.weekly.find { it.week == lastWeek }?.relAbundance ?: 0f
+                if (!seen.add(sp.taxonId)) continue
+                val thisA = sp.abundanceAt(currentWeek)
+                val lastA = sp.abundanceAt(lastWeek)
 
                 val event = when {
                     thisA >= 0.8f && lastA < 0.8f -> "peak"
                     thisA > 0f && lastA == 0f -> "active"
                     else -> null
                 }
-
-                if (event != null) {
-                    val thumbnail = WidgetImageLoader.loadCircularThumbnail(
-                        context, repository, sp, key, 48
-                    )
-                    val chart = PhenologyChartRenderer.render(sp.weekly, currentWeek, 120, 24)
-                    items.add(
-                        WidgetSpeciesItem(
-                            name = sp.commonName.ifEmpty { sp.scientificName },
-                            scientificName = sp.scientificName,
-                            taxonId = sp.taxonId,
-                            abundance = thisA,
-                            status = if (event == "peak") SpeciesStatus.PEAK else SpeciesStatus.ACTIVE,
-                            photo = thumbnail,
-                            chart = chart,
-                            eventLabel = if (event == "peak") "Now at peak" else "Newly active"
-                        )
-                    )
-                }
+                if (event != null) cands.add(Cand(sp, key, thisA, event))
             }
         }
 
-        items.sortByDescending { it.abundance }
-        return WidgetData(mode = "timeline", speciesList = items.take(4), isEmpty = items.isEmpty())
+        val items = cands.sortedByDescending { it.abundance }.take(4).map { c ->
+            val sp = c.sp
+            val thumbnail = WidgetImageLoader.loadCircularThumbnail(context, repository, sp, c.key, 48)
+            val chart = PhenologyChartRenderer.render(sp.weekly, currentWeek, 120, 24)
+            WidgetSpeciesItem(
+                name = sp.commonName.ifEmpty { sp.scientificName },
+                scientificName = sp.scientificName,
+                taxonId = sp.taxonId,
+                abundance = c.abundance,
+                status = if (c.event == "peak") SpeciesStatus.PEAK else SpeciesStatus.ACTIVE,
+                photo = thumbnail,
+                chart = chart,
+                eventLabel = if (c.event == "peak") "Now at peak" else "Newly active"
+            )
+        }
+        return WidgetData(mode = "timeline", speciesList = items, isEmpty = cands.isEmpty())
     }
 
     private fun buildTargets(
@@ -218,33 +222,17 @@ class ManakinGlanceWidget : GlanceAppWidget() {
             return WidgetData(mode = "targets", isEmpty = true)
         }
 
-        val items = mutableListOf<WidgetSpeciesItem>()
+        val cands = mutableListOf<Cand>()
         for (key in repository.getKeys()) {
             for (sp in repository.getSpeciesForKey(key)) {
                 if (sp.taxonId !in favorites) continue
-                val abundance = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
-                if (abundance > 0f) {
-                    val thumbnail = WidgetImageLoader.loadCircularThumbnail(
-                        context, repository, sp, key, 48
-                    )
-                    val activityBar = PhenologyChartRenderer.renderActivityBar(abundance, 100, 8)
-                    items.add(
-                        WidgetSpeciesItem(
-                            name = sp.commonName.ifEmpty { sp.scientificName },
-                            scientificName = sp.scientificName,
-                            taxonId = sp.taxonId,
-                            abundance = abundance,
-                            status = SpeciesStatus.classify(sp, currentWeek),
-                            photo = thumbnail,
-                            chart = activityBar
-                        )
-                    )
-                }
+                val abundance = sp.abundanceAt(currentWeek)
+                if (abundance > 0f) cands.add(Cand(sp, key, abundance))
             }
         }
 
-        items.sortByDescending { it.abundance }
-        return WidgetData(mode = "targets", speciesList = items.take(4), isEmpty = items.isEmpty())
+        val items = cands.sortedByDescending { it.abundance }.take(4).map { activeItem(context, repository, it, currentWeek) }
+        return WidgetData(mode = "targets", speciesList = items, isEmpty = cands.isEmpty())
     }
 }
 

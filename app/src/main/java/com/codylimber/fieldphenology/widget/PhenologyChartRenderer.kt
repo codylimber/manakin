@@ -9,7 +9,7 @@ import com.codylimber.fieldphenology.data.model.WeeklyEntry
 object PhenologyChartRenderer {
 
     /**
-     * Renders a mini 52-week phenology bar chart as a Bitmap.
+     * Renders a mini 53-week phenology bar chart as a Bitmap.
      * Bars are colored with a gradient from green (low) to bright green (high),
      * with the current week highlighted.
      */
@@ -34,7 +34,7 @@ object PhenologyChartRenderer {
             color = highlightColor
         }
 
-        val totalBars = 52
+        val totalBars = 53
         val gap = 1f
         val barWidth = (width.toFloat() - (totalBars - 1) * gap) / totalBars
 
@@ -69,7 +69,8 @@ object PhenologyChartRenderer {
                 alpha = 180
                 strokeWidth = 2f
             }
-            val x = (currentWeek - 1) * (barWidth + gap) + barWidth / 2f
+            val x = ((currentWeek.coerceIn(1, totalBars) - 1) * (barWidth + gap) + barWidth / 2f)
+                .coerceIn(0f, width.toFloat())
             canvas.drawLine(x, 0f, x, height.toFloat(), markerPaint)
         }
 

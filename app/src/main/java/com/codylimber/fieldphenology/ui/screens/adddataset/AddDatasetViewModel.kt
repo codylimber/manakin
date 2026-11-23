@@ -31,6 +31,9 @@ data class AddDatasetState(
     val groupLabel: String = "",
     val groupLabelEdited: Boolean = false,
 
+    // Months (1..12) to limit the species list to; empty = whole year.
+    val selectedMonths: Set<Int> = emptySet(),
+
     // Advanced options
     val showAdvanced: Boolean = false,
     val minObs: String = "10",
@@ -80,7 +83,13 @@ data class AddDatasetState(
             val perSpeciesSec = if (isGbif) {
                 val pages = ((gbifSampleSize.toIntOrNull() ?: 600) / 300.0).coerceAtLeast(1.0)
                 pages * 0.4 + 1.0
-            } else 2.0
+            } else {
+                // ~1 API request/sec. Phenology costs one request per species, or 53 weekly
+                // requests (x pages) for big lists, whichever is fewer; then details in batches
+                // of 30 and photos downloaded several at a time.
+                val phenology = minOf(count.toDouble(), 53.0 * Math.ceil(count * 0.6 / 500.0).coerceAtLeast(1.0))
+                return (phenology + count / 30.0 + count * 0.35) / 60.0
+            }
             return count * perSpeciesSec / 60.0
         }
 }
@@ -272,6 +281,19 @@ class AddDatasetViewModel(
         _state.value = _state.value.copy(maxPhotos = value.filter { it.isDigit() })
     }
 
+    fun toggleMonth(month: Int) {
+        val current = _state.value.selectedMonths
+        val next = if (month in current) current - month else current + month
+        // Picking all twelve is the same as no filter.
+        _state.value = _state.value.copy(selectedMonths = if (next.size == 12) emptySet() else next)
+        fetchEstimate()
+    }
+
+    fun clearMonths() {
+        _state.value = _state.value.copy(selectedMonths = emptySet())
+        fetchEstimate()
+    }
+
     fun toggleShowAllPlaces() {
         _state.value = _state.value.copy(showAllPlaces = !_state.value.showAllPlaces)
     }
@@ -317,13 +339,15 @@ class AddDatasetViewModel(
                     val yearEnd = LocalDate.now().year
                     val yearStart = yearEnd - (s.gbifYearsBack.toIntOrNull() ?: 10) + 1
                     gbifClient.getSpeciesCountEstimate(
-                        taxonIds, s.selectedGbifAreas.map { it.id }, yearStart, yearEnd
+                        taxonIds, s.selectedGbifAreas.map { it.id }, yearStart, yearEnd,
+                        s.selectedMonths.sorted()
                     )
                 } else {
                     var t = 0
                     for (taxonId in taxonIds) {
                         t += apiClient.getSpeciesCountEstimate(
-                            taxonId, s.selectedPlaces.map { it.id }, s.qualityGrade
+                            taxonId, s.selectedPlaces.map { it.id }, s.qualityGrade,
+                            s.selectedMonths.sorted()
                         )
                     }
                     t

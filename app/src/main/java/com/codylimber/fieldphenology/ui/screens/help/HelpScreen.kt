@@ -106,6 +106,10 @@ fun HelpScreen(onBack: () -> Unit, onReplayTutorial: () -> Unit = {}) {
                 "\u2022 A status badge: Peak (amber), Active (green), Early/Late (blue), Inactive (gray)\n" +
                 "\u2022 Activity percentage relative to peak\n" +
                 "\u2022 A mini bar chart showing the full year's phenology\n\n" +
+                "Activity is smoothed across neighboring weeks, so a week with no records " +
+                "between two active weeks still counts as active. Sparsely recorded species " +
+                "are smoothed more. Early/Late only appear for seasonal species; year-round " +
+                "residents show Active. You can turn Early/Late off in Settings.\n\n" +
                 "Swipe right on any card to add it to your targets.\n" +
                 "Long-press a card to share the iNaturalist link.\n\n" +
                 "Sort by Likelihood (combines activity + observation frequency), Peak Date, Name, or Taxonomy. " +

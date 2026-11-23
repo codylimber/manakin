@@ -79,11 +79,15 @@ object DataProcessor {
         return rows
     }
 
-    fun detectFlightPeriods(weeklyData: List<WeeklyRow>, speciesName: String, gapWeeks: Int = 3): Int {
-        val activeWeeks = weeklyData
-            .filter { it.species == speciesName && it.n > 0 }
-            .map { it.week }
-            .sorted()
+    fun detectFlightPeriods(weeklyData: List<WeeklyRow>, speciesName: String, gapWeeks: Int = 3): Int =
+        detectFlightPeriods(
+            weeklyData.filter { it.species == speciesName }.associate { it.week to it.n },
+            gapWeeks
+        )
+
+    /** Counts separate activity periods in a week -> count histogram (gaps > [gapWeeks] split). */
+    fun detectFlightPeriods(histogram: Map<Int, Int>, gapWeeks: Int = 3): Int {
+        val activeWeeks = histogram.filter { it.value > 0 && it.key in 1..53 }.keys.sorted()
 
         if (activeWeeks.isEmpty()) return 0
 
@@ -101,5 +105,16 @@ object DataProcessor {
             }
         }
         return periods
+    }
+
+    /** Fills peak/first/last week and period count from a week -> count histogram. */
+    fun applyHistogram(sp: RawSpecies, histogram: Map<Int, Int>) {
+        val active = histogram.filter { it.value > 0 && it.key in 1..53 }
+        if (active.isNotEmpty()) {
+            sp.peakWeek = active.maxByOrNull { it.value }!!.key
+            sp.firstWeek = active.keys.min()
+            sp.lastWeek = active.keys.max()
+        }
+        sp.periodCount = detectFlightPeriods(histogram)
     }
 }

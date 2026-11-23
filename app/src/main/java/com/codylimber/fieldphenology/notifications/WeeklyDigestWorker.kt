@@ -1,5 +1,8 @@
 package com.codylimber.fieldphenology.notifications
 
+import com.codylimber.fieldphenology.data.model.PhenologyPrefs
+import com.codylimber.fieldphenology.data.model.abundanceAt
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -78,6 +81,7 @@ class WeeklyDigestWorker(
 
     override fun doWork(): Result {
         val prefs = applicationContext.getSharedPreferences("manakin_prefs", Context.MODE_PRIVATE)
+        PhenologyPrefs.load(prefs)
 
         // Check if today is a selected digest day
         val digestDays = prefs.getStringSet("digest_days", null)?.mapNotNull { it.toIntOrNull() }?.toSet()
@@ -98,8 +102,10 @@ class WeeklyDigestWorker(
         val notifKeys = prefs.getStringSet("notification_dataset_keys", emptySet()) ?: emptySet()
         val keys = if (notifKeys.isEmpty()) repository.getKeys() else repository.getKeys().filter { it in notifKeys }
 
-        val currentWeek = LocalDate.now().get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
-        val lastWeek = if (currentWeek > 1) currentWeek - 1 else 53
+        val todayDate = LocalDate.now()
+        val currentWeek = todayDate.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+        val lastWeek = com.codylimber.fieldphenology.data.model.previousIsoWeek(todayDate)
+        val nextWeek = com.codylimber.fieldphenology.data.model.nextIsoWeek(todayDate)
 
         createChannel(applicationContext)
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
@@ -114,8 +120,8 @@ class WeeklyDigestWorker(
             for (key in keys) {
                 for (sp in repository.getSpeciesForKey(key)) {
                     if (!seenIds.add(sp.taxonId)) continue
-                    val thisAbundance = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
-                    val lastAbundance = sp.weekly.find { it.week == lastWeek }?.relAbundance ?: 0f
+                    val thisAbundance = sp.abundanceAt(currentWeek)
+                    val lastAbundance = sp.abundanceAt(lastWeek)
                     val name = sp.commonName.ifEmpty { sp.scientificName }
 
                     if (thisAbundance > 0f && lastAbundance == 0f) {
@@ -166,7 +172,7 @@ class WeeklyDigestWorker(
                         val name = sp.commonName.ifEmpty { sp.scientificName }
                         if (sp.peakWeek == currentWeek) {
                             targetAtPeak.add(name)
-                        } else if (sp.peakWeek == (currentWeek + 2 - 1) % 53 + 1) {
+                        } else if (sp.peakWeek == nextWeek) {
                             targetApproaching.add(name)
                         }
                     }

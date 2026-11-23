@@ -33,12 +33,24 @@ object WidgetImageLoader {
             val uri = repository.getPhotoUri(datasetKey, photo.file)
             val bitmap = if (uri.startsWith("file:///android_asset/")) {
                 val assetPath = uri.removePrefix("file:///android_asset/")
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.assets.open(assetPath).use { BitmapFactory.decodeStream(it, null, bounds) }
+                val opts = BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, maxWidth, maxHeight)
+                }
                 context.assets.open(assetPath).use { stream ->
-                    BitmapFactory.decodeStream(stream)
+                    BitmapFactory.decodeStream(stream, null, opts)
                 }
             } else {
                 val file = File(java.net.URI(uri))
-                if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+                if (file.exists()) {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(file.absolutePath, bounds)
+                    val opts = BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, maxWidth, maxHeight)
+                    }
+                    BitmapFactory.decodeFile(file.absolutePath, opts)
+                } else null
             }
 
             bitmap?.let { scaleBitmap(it, maxWidth, maxHeight) }
@@ -63,6 +75,14 @@ object WidgetImageLoader {
         return cropCircle(photo, size)
     }
 
+    /** Largest power-of-two sample size that keeps the decoded image at least the target size. */
+    private fun sampleSize(srcW: Int, srcH: Int, reqW: Int, reqH: Int): Int {
+        if (srcW <= 0 || srcH <= 0) return 1
+        var sample = 1
+        while (srcW / (sample * 2) >= reqW && srcH / (sample * 2) >= reqH) sample *= 2
+        return sample
+    }
+
     private fun scaleBitmap(source: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
         val ratio = minOf(
             maxWidth.toFloat() / source.width,
@@ -76,7 +96,12 @@ object WidgetImageLoader {
     }
 
     private fun cropCircle(source: Bitmap, size: Int): Bitmap {
-        val scaled = Bitmap.createScaledBitmap(source, size, size, true)
+        // Center-crop to a square instead of stretching non-square images
+        val side = minOf(source.width, source.height)
+        val cropped = Bitmap.createBitmap(
+            source, (source.width - side) / 2, (source.height - side) / 2, side, side
+        )
+        val scaled = Bitmap.createScaledBitmap(cropped, size, size, true)
         val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)

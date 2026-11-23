@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.specieslist
 
+import com.codylimber.fieldphenology.data.model.abundanceAt
+
 import android.content.Intent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -55,7 +57,7 @@ fun SpeciesCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val currentAbundance = species.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
+    val currentAbundance = species.abundanceAt(currentWeek)
     val activityPercent = (currentAbundance * 100).toInt()
     val useSci = AppSettings.useScientificNames
 
