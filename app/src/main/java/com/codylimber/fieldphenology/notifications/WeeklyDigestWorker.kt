@@ -1,5 +1,8 @@
 package com.codylimber.fieldphenology.notifications
 
+import com.codylimber.fieldphenology.data.model.PhenologyPrefs
+import com.codylimber.fieldphenology.data.model.abundanceAt
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -78,6 +81,7 @@ class WeeklyDigestWorker(
 
     override fun doWork(): Result {
         val prefs = applicationContext.getSharedPreferences("manakin_prefs", Context.MODE_PRIVATE)
+        PhenologyPrefs.load(prefs)
 
         // Check if today is a selected digest day
         val digestDays = prefs.getStringSet("digest_days", null)?.mapNotNull { it.toIntOrNull() }?.toSet()
@@ -114,8 +118,8 @@ class WeeklyDigestWorker(
             for (key in keys) {
                 for (sp in repository.getSpeciesForKey(key)) {
                     if (!seenIds.add(sp.taxonId)) continue
-                    val thisAbundance = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
-                    val lastAbundance = sp.weekly.find { it.week == lastWeek }?.relAbundance ?: 0f
+                    val thisAbundance = sp.abundanceAt(currentWeek)
+                    val lastAbundance = sp.abundanceAt(lastWeek)
                     val name = sp.commonName.ifEmpty { sp.scientificName }
 
                     if (thisAbundance > 0f && lastAbundance == 0f) {

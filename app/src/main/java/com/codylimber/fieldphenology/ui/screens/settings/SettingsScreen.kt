@@ -235,6 +235,28 @@ fun SettingsScreen(
                 )
             }
 
+            // Early / Late labels
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Early / Late Labels", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
+                    Text(
+                        "Mark seasonal species as Early or Late at the edges of their season. " +
+                            "Year-round species always show Active. Off: every edge week shows Active.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+                Switch(
+                    checked = AppSettings.showEarlyLate,
+                    onCheckedChange = { AppSettings.updateShowEarlyLate(it) },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Primary)
+                )
+            }
+
             // Min activity threshold
             Column {
                 Row(

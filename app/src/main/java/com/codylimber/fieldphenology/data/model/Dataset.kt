@@ -56,7 +56,15 @@ data class Species(
     val orderScientific: String? = null,
     val photos: List<SpeciesPhoto> = emptyList(),
     val weekly: List<WeeklyEntry> = emptyList()
-)
+) {
+    /**
+     * Smoothed activity profile, computed once per loaded species. Delegated properties have
+     * no backing field, so kotlinx.serialization ignores it and dataset JSON is unchanged.
+     */
+    val profile: PhenologyProfile by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        PhenologyProfile.compute(weekly)
+    }
+}
 
 @Serializable
 data class SpeciesPhoto(
@@ -76,19 +84,32 @@ enum class SpeciesStatus {
     PEAK, ACTIVE, EARLY, LATE, INACTIVE;
 
     companion object {
-        fun classify(species: Species, currentWeek: Int): SpeciesStatus {
-            val entry = species.weekly.find { it.week == currentWeek }
-            if (entry == null || entry.n == 0) return INACTIVE
+        /**
+         * Status from the smoothed profile, so a gap week between active weeks is not
+         * reported as inactive (any week with real records stays active, as before). EARLY/LATE only apply to seasonal species (and only when the
+         * user has them enabled); for year-round residents a low week is still ACTIVE.
+         */
+        fun classify(
+            species: Species,
+            currentWeek: Int,
+            showEarlyLate: Boolean = PhenologyPrefs.showEarlyLate
+        ): SpeciesStatus {
+            val profile = species.profile
+            val a = profile.at(currentWeek)
             return when {
-                entry.relAbundance >= 0.8f -> PEAK
-                entry.relAbundance >= 0.2f -> ACTIVE
-                else -> {
-                    // Handle year-wrapping: compute shortest distance to peak in either direction
-                    val forwardToPeak = (species.peakWeek - currentWeek + 53) % 53
-                    val backFromPeak = (currentWeek - species.peakWeek + 53) % 53
-                    if (forwardToPeak <= backFromPeak) EARLY else LATE
-                }
+                !profile.isActive(currentWeek) -> INACTIVE
+                a >= 0.8f -> PEAK
+                a >= 0.2f -> ACTIVE
+                !showEarlyLate || !profile.isSeasonal -> ACTIVE
+                profile.isRising(currentWeek) -> EARLY
+                else -> LATE
             }
+        }
+
+        /** Classifies at the week of highest activity within [weeks] (for date ranges). */
+        fun classifyRange(species: Species, weeks: Collection<Int>): SpeciesStatus {
+            val best = weeks.maxByOrNull { species.abundanceAt(it) } ?: return INACTIVE
+            return classify(species, best)
         }
     }
 }

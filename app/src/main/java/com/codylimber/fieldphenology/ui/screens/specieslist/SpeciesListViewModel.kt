@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.specieslist
 
+import com.codylimber.fieldphenology.data.model.abundanceAt
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.codylimber.fieldphenology.data.api.LifeListService
@@ -227,8 +229,7 @@ class SpeciesListViewModel(
         val candidates = mutableListOf<Triple<Species, String, SpeciesStatus>>()
         for (key in repository.getKeys()) {
             for (sp in repository.getSpeciesForKey(key)) {
-                val entry = sp.weekly.find { it.week == week } ?: continue
-                if (entry.relAbundance >= 0.25f && entry.n > 0) {
+                if (sp.abundanceAt(week) >= 0.25f) {
                     val status = SpeciesStatus.classify(sp, week)
                     candidates.add(Triple(sp, key, status))
                 }
@@ -305,18 +306,12 @@ class SpeciesListViewModel(
                     if (sp.taxonId in seen) continue
                     seen.add(sp.taxonId)
                     val abundance = if (st.isRangeMode) {
-                        sp.weekly.filter { it.week in weekRange }.maxOfOrNull { it.relAbundance } ?: 0f
+                        weekRange.maxOfOrNull { sp.abundanceAt(it) } ?: 0f
                     } else {
-                        sp.weekly.find { it.week == week }?.relAbundance ?: 0f
+                        sp.abundanceAt(week)
                     }
-                    val status = if (st.isRangeMode) {
-                        when {
-                            abundance >= 0.8f -> SpeciesStatus.PEAK
-                            abundance >= 0.2f -> SpeciesStatus.ACTIVE
-                            abundance > 0f -> SpeciesStatus.EARLY
-                            else -> SpeciesStatus.INACTIVE
-                        }
-                    } else SpeciesStatus.classify(sp, week)
+                    val status = if (st.isRangeMode) SpeciesStatus.classifyRange(sp, weekRange)
+                        else SpeciesStatus.classify(sp, week)
                     val isObserved = sp.taxonId in st.observedIds
                     allWithStatus.add(SpeciesWithStatus(sp, status, abundance, isObserved, key))
                 }

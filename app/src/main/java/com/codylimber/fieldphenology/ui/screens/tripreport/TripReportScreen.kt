@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.tripreport
 
+import com.codylimber.fieldphenology.data.model.abundanceAt
+import com.codylimber.fieldphenology.data.model.PhenologyProfile
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -91,7 +93,9 @@ fun TripReportScreen(
             for (sp in repository.getSpeciesForKey(key)) {
                 if (sp.taxonId in seen) continue
                 seen.add(sp.taxonId)
-                val isActive = sp.weekly.any { it.week in weekRange && it.n > 0 }
+                // Recorded in the window, or expected there once sampling gaps are smoothed over.
+                val isActive = sp.weekly.any { it.week in weekRange && it.n > 0 } ||
+                    weekRange.any { sp.abundanceAt(it) >= PhenologyProfile.ACTIVE_FLOOR }
                 if (isActive) list.add(sp to key)
             }
         }

@@ -1,5 +1,8 @@
 package com.codylimber.fieldphenology.widget
 
+import com.codylimber.fieldphenology.data.model.PhenologyPrefs
+import com.codylimber.fieldphenology.data.model.abundanceAt
+
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -44,6 +47,7 @@ class ManakinGlanceWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val prefs = context.getSharedPreferences("manakin_prefs", Context.MODE_PRIVATE)
+        PhenologyPrefs.load(prefs)
         val widgetMode = prefs.getString("widget_mode", "top_active") ?: "top_active"
 
         val repository = PhenologyRepository(context)
@@ -86,8 +90,7 @@ class ManakinGlanceWidget : GlanceAppWidget() {
         val candidates = mutableListOf<Candidate>()
         for (key in repository.getKeys()) {
             for (sp in repository.getSpeciesForKey(key)) {
-                val entry = sp.weekly.find { it.week == currentWeek }
-                if (entry != null && entry.relAbundance >= 0.25f && entry.n > 0) {
+                if (sp.abundanceAt(currentWeek) >= 0.25f) {
                     candidates.add(Candidate(sp, key))
                 }
             }
@@ -105,7 +108,7 @@ class ManakinGlanceWidget : GlanceAppWidget() {
         val chart = PhenologyChartRenderer.render(species.weekly, currentWeek, 280, 40)
         val name = species.commonName.ifEmpty { species.scientificName }
         val status = SpeciesStatus.classify(species, currentWeek)
-        val abundance = species.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
+        val abundance = species.abundanceAt(currentWeek)
 
         return WidgetData(
             mode = "organism_of_day",
@@ -133,7 +136,7 @@ class ManakinGlanceWidget : GlanceAppWidget() {
             for (sp in repository.getSpeciesForKey(key)) {
                 if (sp.taxonId in seen) continue
                 seen.add(sp.taxonId)
-                val abundance = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
+                val abundance = sp.abundanceAt(currentWeek)
                 if (abundance > 0f) {
                     val thumbnail = WidgetImageLoader.loadCircularThumbnail(
                         context, repository, sp, key, 48
@@ -171,8 +174,8 @@ class ManakinGlanceWidget : GlanceAppWidget() {
             for (sp in repository.getSpeciesForKey(key)) {
                 if (sp.taxonId in seen) continue
                 seen.add(sp.taxonId)
-                val thisA = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
-                val lastA = sp.weekly.find { it.week == lastWeek }?.relAbundance ?: 0f
+                val thisA = sp.abundanceAt(currentWeek)
+                val lastA = sp.abundanceAt(lastWeek)
 
                 val event = when {
                     thisA >= 0.8f && lastA < 0.8f -> "peak"
@@ -222,7 +225,7 @@ class ManakinGlanceWidget : GlanceAppWidget() {
         for (key in repository.getKeys()) {
             for (sp in repository.getSpeciesForKey(key)) {
                 if (sp.taxonId !in favorites) continue
-                val abundance = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
+                val abundance = sp.abundanceAt(currentWeek)
                 if (abundance > 0f) {
                     val thumbnail = WidgetImageLoader.loadCircularThumbnail(
                         context, repository, sp, key, 48

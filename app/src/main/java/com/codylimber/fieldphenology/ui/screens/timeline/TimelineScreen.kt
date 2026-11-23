@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.timeline
 
+import com.codylimber.fieldphenology.data.model.abundanceAt
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -71,9 +73,9 @@ fun TimelineScreen(
 
         for (key in selectedKeys) {
             for (sp in repository.getSpeciesForKey(key)) {
-                val thisAbundance = sp.weekly.find { it.week == currentWeek }?.relAbundance ?: 0f
-                val lastAbundance = sp.weekly.find { it.week == lastWeek }?.relAbundance ?: 0f
-                val nextAbundance = sp.weekly.find { it.week == nextWeek }?.relAbundance ?: 0f
+                val thisAbundance = sp.abundanceAt(currentWeek)
+                val lastAbundance = sp.abundanceAt(lastWeek)
+                val nextAbundance = sp.abundanceAt(nextWeek)
 
                 // Transition events (mutually exclusive)
                 when {

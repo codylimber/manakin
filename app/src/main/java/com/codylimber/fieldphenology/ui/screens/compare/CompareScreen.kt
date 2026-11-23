@@ -1,5 +1,7 @@
 package com.codylimber.fieldphenology.ui.screens.compare
 
+import com.codylimber.fieldphenology.data.model.abundanceAt
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -89,10 +91,10 @@ fun CompareScreen(
             SortMode.PEAK_DATE -> list.sortedBy { it.peakWeek }
             SortMode.TAXONOMY -> list.sortedWith(compareBy<Species> { it.order ?: "" }.thenBy { it.family ?: "" }.thenBy { it.scientificName })
             SortMode.LIKELIHOOD -> list.sortedWith(compareBy<Species> {
-                val w = it.weekly.find { e -> e.week == currentWeek }?.relAbundance ?: 0f
+                val w = it.abundanceAt(currentWeek)
                 if (w > 0f) 0 else 1
             }.thenByDescending {
-                val w = it.weekly.find { e -> e.week == currentWeek }?.relAbundance ?: 0f
+                val w = it.abundanceAt(currentWeek)
                 val logObs = if (it.totalObs > 0) kotlin.math.ln(it.totalObs.toDouble()) else 0.0
                 w * logObs
             })

@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import android.content.SharedPreferences
 import com.codylimber.fieldphenology.data.api.TaxonResult
+import com.codylimber.fieldphenology.data.model.PhenologyPrefs
 import com.codylimber.fieldphenology.data.model.SortMode
 import org.json.JSONArray
 import org.json.JSONObject
@@ -21,6 +22,9 @@ object AppSettings {
     var selectedDatasetKeys by mutableStateOf(setOf<String>())
     var showActiveOnly by mutableStateOf(true)
     var targetMode by mutableStateOf("STARRED")
+    // Mirrors PhenologyPrefs.showEarlyLate; set via updateShowEarlyLate so both stay in sync.
+    var showEarlyLate by mutableStateOf(true)
+        private set
     var weeklyDigestEnabled by mutableStateOf(false)
     var digestDays by mutableStateOf(setOf(2)) // Calendar day constants: Sunday=1..Saturday=7
     var digestHour by mutableStateOf(8)
@@ -44,6 +48,14 @@ object AppSettings {
         selectedDatasetKeys = prefs.getStringSet("selected_dataset_keys", emptySet()) ?: emptySet()
         showActiveOnly = prefs.getBoolean("show_active_only", true)
         targetMode = prefs.getString("target_mode", "STARRED") ?: "STARRED"
+        PhenologyPrefs.load(prefs)
+        showEarlyLate = PhenologyPrefs.showEarlyLate
+    }
+
+    fun updateShowEarlyLate(value: Boolean) {
+        showEarlyLate = value
+        PhenologyPrefs.showEarlyLate = value
+        prefs?.edit()?.putBoolean(PhenologyPrefs.KEY_SHOW_EARLY_LATE, value)?.apply()
     }
 
     fun saveSelectedDatasetKeys() {
